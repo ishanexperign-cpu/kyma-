@@ -1,0 +1,69 @@
+/* KYMA · timeline.css — the multitrack timeline (Compose and Video) */
+/* ---------- timeline workspace ---------- */
+.ws{padding:0;overflow:hidden}
+.wstool{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.wstool .grp{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.wstool .sep{width:1px;height:22px;background:var(--line)}
+.wstool .btn{padding:0 11px;height:30px;font-size:12px}
+.wstool input[type=range]{width:110px;accent-color:var(--accent)}
+.songlen{display:flex;align-items:center;gap:6px}
+.songlen input{width:72px;height:32px;background:var(--screen);border:0;border-radius:var(--r-sm);padding:0 8px;color:#f3eff5;font-family:var(--font-num);font-weight:400;font-size:17px;text-align:center}
+.songlen small{color:var(--muted);font-size:10.5px;font-family:var(--font-mono)}
+.wsopts{display:flex;flex-wrap:wrap;gap:4px 14px;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+.wsopts .check{font-size:11.5px;margin:0}
+.wsbody{display:grid;grid-template-columns:240px minmax(0,1fr);position:relative}
+.heads{border-right:1px solid var(--line);background:var(--surface);min-width:0}
+.rhead{display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--screen-line);background:var(--screen)}
+.rhead .lbl{color:#9b92a1}
+.thead{position:relative;border-bottom:1px solid var(--line);padding:6px 8px 6px 12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;min-width:0;overflow:hidden}
+.thead.focus{background:var(--surface-2)}
+.thead .tstrip{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tc)}
+.thead.hit .tstrip{width:6px}
+.thead.muted .tnm,.thead.muted .tinst{opacity:.45}
+.trow1,.trow2,.trow3,.trow4{display:flex;align-items:center;gap:4px;min-width:0}
+.tchev{background:none;border:0;color:var(--muted);width:16px;padding:0;cursor:pointer;font-size:12px;flex:none}
+.tnm{flex:1;min-width:0;background:transparent;border:1px solid transparent;border-radius:6px;padding:1px 4px;font-weight:600;font-size:12.5px;letter-spacing:-.01em}
+.tnm:hover,.tnm:focus{border-color:var(--line);background:var(--cell);outline:none}
+.thead .ms{width:22px;height:20px}
+.tinst{flex:1;min-width:0;display:flex;align-items:center;gap:6px;background:var(--cell);border:1px solid var(--line);border-radius:999px;padding:2px 8px;cursor:pointer;text-align:left;height:22px}
+.tinst:hover{border-color:var(--tc)}
+.tinst b{font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.tcat{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);flex:none;text-transform:lowercase}
+.thead .ltool{width:24px;height:22px}
+.thead .ltool svg{width:13px;height:13px}
+.thum.rec{background:var(--warn);color:#fff;border-color:var(--warn);animation:recp 1s infinite}
+.tvol{flex:1;min-width:0;accent-color:var(--tc);height:14px}
+.tvl{font-size:10px;color:var(--muted);width:44px;text-align:right;font-family:var(--font-mono)}
+.tdetail{border-top:1px dashed var(--line);margin-top:4px;padding-top:6px;overflow-y:auto;flex:1;min-height:0;cursor:default}
+.tdetail .knobs{grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px 4px}
+.tdetail .knob .dial{width:34px;height:34px}
+.tdetail .seg,.tdetail .enum{flex-wrap:wrap}
+.tdetail .seg{height:auto;min-height:30px}
+.toct{min-width:14px;text-align:center;font-family:var(--font-num)}
+.trow4 .sel{padding:2px 4px;font-size:11px;height:26px}
+.addrow{display:flex;align-items:center;padding:0 10px}
+.addrow .btn{width:100%;justify-content:center}
+.lanes{overflow-x:auto;overflow-y:hidden;position:relative;scrollbar-color:var(--line) transparent}
+#lanesInner{position:relative}
+#lanesCv{position:sticky;left:0;display:block;touch-action:none}
+.wshint{margin:0;padding:7px 12px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);min-height:28px}
+.wshint:empty::before{content:"Click a track name to open its note editor · drag clip edges to trim or extend · drag the top corners for fades · Alt-drag copies · Shift-click two clips, then Blend · drag across lanes to select a range"}
+
+@media (max-width:760px){
+  .wsbody{grid-template-columns:150px minmax(0,1fr)}
+  .tcat,.tvl{display:none}
+  .thead{padding:5px 5px 5px 9px}
+  .wstool .sep{display:none}
+  .wstool input[type=range]{width:80px}
+  .brwrap{grid-template-columns:1fr}
+  .brcats{display:flex;overflow-x:auto;gap:4px}
+  .brcat{flex:none;gap:6px}
+}
+/* lanes above the tracks (the Video picture lane) */
+.thead.toplane{background:var(--screen);color:#f3eff5}
+.thead.toplane .trow1{gap:6px}
+.vl-tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;background:var(--orange);color:#2a0e05;border-radius:4px;padding:1px 5px;flex:none}
+.vl-name{font-size:12px;font-weight:600;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thead.toplane .tstrip{background:var(--orange)}
+.thead.toplane .ms{border-color:#4c4352;color:#b6adbb}
+.thead.toplane .tvol{accent-color:var(--orange)}

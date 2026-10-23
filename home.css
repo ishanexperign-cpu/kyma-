@@ -1,0 +1,59 @@
+/* KYMA · home.css — the home screen, kept quiet: a wordmark, four studios, your projects */
+html,body{background:var(--bg)}
+.k-home{max-width:980px;margin:0 auto;padding:28px max(20px,env(safe-area-inset-left,0px)) 48px;display:grid;gap:56px}
+.k-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.k-logo{display:flex;align-items:flex-start;gap:4px;color:var(--logo)}
+.k-logo .wordmark{height:20px;color:var(--logo)}
+.k-logo sup{font-family:var(--font-mono);font-size:8.5px;font-weight:400;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);line-height:1}
+.k-nav{display:flex;gap:18px}
+.k-link{border:0;background:none;padding:0;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid transparent}
+.k-link:hover{color:var(--fg);border-bottom-color:currentColor}
+.k-cur{margin:0;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+.k-cur b{font-family:var(--font-display);font-weight:200;font-size:clamp(28px,4.4vw,42px);letter-spacing:-.03em;line-height:1.05;word-break:break-word}
+.k-cur #hCurMeta{font-family:var(--font-mono);font-size:11px;color:var(--muted);flex-basis:100%}
+.k-studios{display:grid;border-top:1px solid var(--line)}
+.k-st{display:grid;grid-template-columns:44px minmax(0,auto) minmax(0,1fr) 28px;align-items:baseline;gap:18px;padding:22px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--fg)}
+.k-n{font-family:var(--font-mono);font-size:11px;color:var(--muted);transition:color .2s}
+.k-nm{font-family:var(--font-display);font-weight:200;font-size:clamp(28px,4vw,40px);letter-spacing:-.03em;line-height:1}
+.k-d{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);justify-self:end;text-align:right}
+.k-ar{justify-self:end;color:var(--muted);transition:transform .2s,color .2s}
+.k-st:hover .k-n,.k-st:hover .k-ar,.k-st:focus-visible .k-ar{color:var(--accent)}
+.k-st:hover .k-ar{transform:translateX(5px)}
+.k-st:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.k-projects{display:grid;gap:10px}
+.k-ph{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.k-ph .grow{flex:1}
+.k-search{height:30px;border-radius:999px;border:1px solid var(--line);background:transparent;padding:0 12px;min-width:160px;font-size:12.5px}
+.h-list{display:grid}
+.h-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:2px 0}
+.h-row:first-child{border-top:1px solid var(--line)}
+.h-main{display:flex;align-items:center;gap:12px;border:0;background:transparent;text-align:left;padding:12px 0;min-width:0;color:inherit}
+.h-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--line)}
+.h-row.current .h-dot{background:var(--accent)}
+.h-txt{display:grid;min-width:0;gap:2px}
+.h-txt b{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-main:hover b{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.h-txt small{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-when{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
+.h-open{display:flex;gap:2px}
+.h-st{border:0;background:transparent;border-radius:999px;height:26px;padding:0 9px;font-size:12px;color:var(--muted)}
+.h-st:hover{background:var(--fg);color:var(--bg)}
+.h-st.last{color:var(--fg)}
+.h-more{width:30px;height:30px;justify-content:center;padding:0}
+.h-empty{display:grid;gap:4px;padding:18px 0;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+.h-empty b{color:var(--fg);font-weight:500}
+.k-foot{font-size:12px;color:var(--muted)}
+@media (max-width:760px){
+  .k-home{gap:40px}
+  .k-st{grid-template-columns:32px minmax(0,1fr) 20px;gap:10px}
+  .k-d{grid-column:2;grid-row:2;justify-self:start;text-align:left}
+  .k-ar{grid-column:3;grid-row:1}
+  .h-row{grid-template-columns:minmax(0,1fr) auto}.h-when{display:none}.h-open{grid-column:1/-1;margin:-4px 0 8px 17px;flex-wrap:wrap}
+}
+
+/* a single soft sun over the list, like light through frosted glass */
+.k-home::before{content:"";position:absolute;right:-6%;top:40px;width:min(46vw,460px);aspect-ratio:1;border-radius:50%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 46% 44%,rgba(246,140,104,.75) 0,rgba(244,150,120,.42) 34%,rgba(240,170,150,0) 68%);filter:blur(12px)}
+.k-st{position:relative}
+.k-st::after{content:"";position:absolute;inset:0;border-radius:14px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--surface) 70%,transparent));opacity:0;transition:opacity .3s;z-index:-1}
+.k-st:hover::after{opacity:1}
