@@ -5,13 +5,13 @@
 .opbody{display:grid;grid-template-columns:230px auto 150px minmax(0,1fr);gap:18px;align-items:center}
 .opscreen{background:var(--screen);border-radius:12px;position:relative;height:132px;overflow:hidden}
 #scopeCv{width:100%;height:100%;display:block}
-.opread{position:absolute;left:12px;top:10px;display:grid;gap:1px;font-family:var(--font-num);pointer-events:none;color:#f3eff5}
+.opread{position:absolute;left:12px;top:10px;display:grid;gap:1px;font-family:var(--font-num);pointer-events:none;color:#eef1f0}
 .opread b{font-size:24px;font-weight:300;font-variant-numeric:tabular-nums}
 .opread span{font-family:var(--font-mono);font-size:10px;opacity:.6}
 .openc{display:grid;grid-template-columns:repeat(4,auto);gap:12px;justify-content:start}
 .knob.te .dial{width:62px;height:62px;background:conic-gradient(from 225deg,var(--kc) calc(var(--v)*270deg),var(--cell-hi) 0 270deg,transparent 0)}
 .knob.te .dial::before{inset:7px;background:var(--cap);box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 -3px 0 rgba(0,0,0,.15)}
-.knob.te .dial::after{top:11px;height:13px;width:4px;margin-left:-2px;border-radius:2px;background:var(--capdot,#17131b);transform-origin:50% 20px}
+.knob.te .dial::after{top:11px;height:13px;width:4px;margin-left:-2px;border-radius:2px;background:var(--capdot,#0e1012);transform-origin:50% 20px}
 .knob.te .kl{font-family:var(--font-mono);font-size:10.5px;color:var(--fg);text-transform:lowercase}
 .opxy{display:grid;gap:5px;justify-items:center}
 #xyCv{width:150px;height:132px;display:block;background:var(--screen);border-radius:12px;touch-action:none;cursor:crosshair}
@@ -19,8 +19,8 @@
 .ppad{height:62px;border-radius:10px;border:0;background:var(--surface-2);display:grid;align-content:space-between;justify-items:start;padding:8px 9px;font:inherit;font-size:11.5px;font-weight:600;color:var(--fg);text-align:left;user-select:none;-webkit-user-select:none;touch-action:none}
 .ppad i{display:block;width:100%;height:3px;border-radius:2px;background:var(--pc)}
 .ppad kbd{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);font-weight:500}
-.ppad.on{background:var(--pc);color:#17131b;transform:translateY(1px)}
-.ppad.on kbd{color:#17131b}
+.ppad.on{background:var(--pc);color:#0e1012;transform:translateY(1px)}
+.ppad.on kbd{color:#0e1012}
 
 /* ---------- DJ ---------- */
 .dj{display:grid;grid-template-columns:minmax(0,1fr) 270px minmax(0,1fr);gap:var(--gap);align-items:start}

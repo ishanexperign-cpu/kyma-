@@ -158,7 +158,7 @@ function planProg(start,bars,o){
   let pool=M.progs; if(prev!=null){ const f=M.progs.filter(t=>(NEXT_CH[prev]||[]).includes(t[0])&&t[0]!==prev); if(f.length) pool=f; }
   let tpl=wpick(pool).slice(); if(o.contrast){ const alt=M.progs.filter(t=>t.join()!==tpl.join()); if(alt.length) tpl=wpick(alt).slice(); if(tpl[0]===0) tpl=[tpl[1],tpl[0],...tpl.slice(2)]; }
   const out=[]; for(let b=0;b<bars;b++) out.push(tpl[b%tpl.length]);
-  if(o.cadence==='open'&&bars>=2) out[bars-1]=4; if(o.cadence==='home'&&bars>=2&&out[bars-2]!==4&&Math.random()<.5) out[bars-2]=4;
+  if(o.cadence==='open'&&bars>=2) out[bars-1]=4; if(o.cadence==='home'&&bars>=2){ out[bars-1]=0; if(out[bars-2]!==4&&out[bars-2]!==3) out[bars-2]=Math.random()<.7?4:3; }
   return out;
 }
 
@@ -239,29 +239,65 @@ Object.assign(DRUM_RH,{
   ballad:[{k:'x.......x.......',r:'....x.......x...',h:'x...x...x...x...'},{k:'x...............',r:'........x.......',x:'..o...o...o...o.'}]});
 
 /* ---------- role generators ---------- */
+/* the notes a chord is heard as: a diminished triad borrows the sixth, so nothing ever rests on a tritone */
+function chordTones(ch){ if(scaleN()===7&&degSemi(ch+4)-degSemi(ch)===6) return [ch,ch+2,ch+5]; return [ch,ch+2,ch+4]; }
+const isTone=(tones,x,n)=>tones.some(t=>((x-t)%n+n)%n===0);
+function toneBelow(tones,x,n){ for(let v=x;v>x-n-1;v--) if(isTone(tones,v,n)) return v; return x; }
+function toneAbove(tones,x,n){ for(let v=x;v<x+n+1;v++) if(isTone(tones,v,n)) return v; return x; }
+/* Melody is built the way a tune is written: a two-bar idea (A), the same idea answered (A'),
+   a contrasting phrase that reaches the one high point (B), and the idea again brought home (A'').
+   Strong beats and held notes sit on chord tones, leaps are followed by a step back,
+   phrases end with room to breathe, and a closing phrase steps down onto the key note. */
 function genMelody(o){
   const M=moodP(), n=scaleN(), L=o.bars*16, dens=clamp(M.dens*.55+o.energy*.5,.08,1), notes=[];
-  const base=o.seed&&o.seed.rhythm&&o.rel!=='bridge'?o.seed.rhythm:motifRhythm(dens,M.ostinato&&Math.random()<.6);
+  const ost=!!(M.ostinato&&Math.random()<.6), seeded=!!(o.seed&&o.seed.rhythm&&o.rel!=='bridge');
+  const base=seeded?o.seed.rhythm:motifRhythm(dens,ost);
   const units=Math.max(1,Math.ceil(o.bars/2)), center=(o.center!=null?o.center:4+M.reg*2)+(o.lift?3:0);
-  let cur=o.seed&&o.seed.last!=null?o.seed.last:nearestTone([o.prog[0],o.prog[0]+2,o.prog[0]+4],center,n);
-  const lo=center-6, hi=center+7;
+  const chAt=at=>o.prog[Math.floor(at/16)%o.prog.length];
+  let cur=o.seed&&o.seed.last!=null?o.seed.last:nearestTone(chordTones(o.prog[0]),center,n);
+  const lo=center-6, hi=center+7, closed=o.cadence!=='open';
+  let shape=seeded&&Array.isArray(o.seed.shape)?new Map(o.seed.shape):null, home=null, leap=0, same=0;
+  const kindOf=u=>{ if(u===0) return shape?'A2':'A'; if(units===2) return 'A1'; return ['A2','A1','B','A2'][u%4]; };
+  const peakU=units>=3?2+4*Math.floor((units-3)/4):-1;
   for(let u=0;u<units;u++){
-    let rh=base.map(x=>x.slice()); if(u%2===1||(o.seed&&o.rel==='next'&&u===0)) rh=varyRhythm(rh);
-    const final=u===units-1, endHome=final?o.cadence!=='open':u%2===1;
-    rh.forEach(([st,d],i)=>{ const at=u*32+st; if(at>=L) return; const bar=Math.floor(at/16), ch=o.prog[bar%o.prog.length], tones=[ch,ch+2,ch+4];
-      const pos=at/L, drift={up:pos*4-1,down:2-pos*4,arch:Math.sin(pos*Math.PI)*3.5-1,flat:0}[M.contour]||0, want=center+drift;
-      const strong=st%8===0||(st%4===0&&Math.random()<.4);
+    const kind=kindOf(u), final=u===units-1, endHome=final?closed:u%2===1;
+    let rh=base.map(x=>x.slice()); if(kind==='A1'||kind==='B') rh=varyRhythm(rh);
+    const uc=center+(kind==='B'?2:0), follow=shape&&kind!=='A'&&kind!=='B';
+    let p0=null; const made=[];
+    rh.forEach(([st,d],i)=>{ const at=u*32+st; if(at>=L) return; const ch=chAt(at), tones=chordTones(ch);
+      const pos=at/L, drift={up:pos*4-1,down:2-pos*4,arch:Math.sin(pos*Math.PI)*3.5-1,flat:0}[M.contour]||0, want=uc+drift;
+      const dd=Math.max(1,Math.min(d,L-at)), strong=st%8===0||dd>=4||(st%4===0&&Math.random()<.4), isLast=i===rh.length-1;
       let t;
-      if(i===rh.length-1){ t=endHome?nearestTone(final?[0,ch]:tones,cur,n):nearestTone([ch+4,ch+1,ch+2],cur,n); }
+      if(p0==null){ t=follow&&home!=null?nearestTone(tones,home+(kind==='A2'?0:(Math.random()<.5?0:1)),n):nearestTone(tones,(u===0?cur:cur*.5+want*.5),n); p0=t; if(home==null) home=t; }
+      else if(isLast) t=endHome?nearestTone(final?(isTone(tones,0,n)?[0]:[ch]):tones,cur,n):nearestTone([tones[2],ch+1,tones[1]],cur,n);
+      else if(follow&&shape.has(st)){ t=p0+shape.get(st); if(strong&&!isTone(tones,t,n)) t=nearestTone(tones,t,n); }
       else if(strong) t=nearestTone(tones,cur*.55+want*.45,n);
-      else { t=cur+wpick([-2,-1,1,2,0,-1,1],[1,3,3,1,.6,1,1])+(want>cur+2?1:want<cur-2?-1:0); if(Math.random()<o.energy*.14) t+=wpick([-4,4,3,-3,5]); }
-      t=clamp(t,lo,hi); cur=t;
-      notes.push({t:at,d:Math.max(1,Math.min(d,L-at)),n:t,v:+(strong?.8+.16*o.energy:.6+.22*o.energy).toFixed(2)});
+      else if(Math.abs(leap)>=3) t=cur-Math.sign(leap);                       // a leap is answered by a step back
+      else { t=cur+wpick([-2,-1,1,2,0,-1,1],[1,3,3,1,.5,1,1])+(want>cur+2?1:want<cur-2?-1:0); if(Math.random()<o.energy*.14) t+=wpick([-4,4,3,-3,5]); }
+      if(!ost&&t===cur&&same>=2){ t=want>=cur?cur+1:cur-1; if(strong) t=want>=cur?toneAbove(tones,t,n):toneBelow(tones,t,n); } // no more than three of the same note in a row
+      t=clamp(t,lo,hi+(kind==='B'?2:0)); same=t===cur?same+1:0; leap=t-cur; cur=t;
+      const nt={t:at,d:dd,n:t,v:+(strong?.8+.16*o.energy:.6+.22*o.energy).toFixed(2),_s:strong,_u:u,_st:st}; notes.push(nt); made.push(nt);
     });
+    if(kind==='A'&&!shape&&made.length) shape=new Map(made.map(x=>[x._st,x.n-made[0].n]));
+    // leave a breath before the next phrase starts
+    if(!ost&&!final&&made.length){ const x=made[made.length-1], edge=u*32+32; if(x.t+x.d>edge-2&&edge-2-x.t>=2) x.d=edge-2-x.t; }
   }
-  return {notes,motif:{rhythm:base},last:cur};
+  if(notes.length>2&&!ost){
+    // one high point: the contrasting phrase owns it, everything else stays a step under
+    const pk=peakU>=0&&notes.some(x=>x._u===peakU)?peakU:notes.reduce((a,x)=>x.n>a.n?x:a,notes[0])._u;
+    const inP=notes.filter(x=>x._u===pk), out=notes.filter(x=>x._u!==pk), oMax=out.length?Math.max(...out.map(x=>x.n)):-99;
+    let top=inP.reduce((a,x)=>x.n>a.n||(x.n===a.n&&x._s&&!a._s)?x:a,inP[0]);
+    if(top.n<=oMax&&peakU>=0){ const want=toneAbove(chordTones(chAt(top.t)),oMax+1,n); if(want<=hi+3) top.n=want; }
+    const peak=top.n; let seen=false;
+    for(const x of notes){ if(x===top) continue; if(x.n>=peak){ const tones=chordTones(chAt(x.t)); x.n=x._s?toneBelow(tones,peak-1,n):peak-1; } }
+    // closing phrase: step onto the last note rather than jumping to it
+    if(closed){ const f=notes[notes.length-1], pn=notes[notes.length-2]; if(pn&&pn._u===f._u&&!(pn._s&&pn.d>=4)&&Math.abs(pn.n-f.n)!==1) pn.n=f.n+(pn.n<f.n?-1:1); }
+    cur=notes[notes.length-1].n;
+  }
+  notes.forEach(x=>{ delete x._s; delete x._u; delete x._st; });
+  return {notes,motif:{rhythm:base,shape:shape?[...shape]:null},last:cur};
 }
-function voiceChord(ch,prev,center,seventh,n,add9){ const raw=[ch,ch+2,ch+4]; if(seventh) raw.push(ch+6); if(add9&&!seventh) raw.push(ch+n+1);
+function voiceChord(ch,prev,center,seventh,n,add9){ const raw=chordTones(ch); if(seventh) raw.push(ch+6); if(add9&&!seventh) raw.push(ch+n+1);
   const ref=prev&&prev.length?prev.reduce((a,b)=>a+b,0)/prev.length:center; return raw.map(t=>nearestTone([t],ref+(t-ch)-1.5,n)).sort((a,b)=>a-b); }
 function genChords(o){ const g=genreP(), M=moodP(), n=scaleN(), notes=[]; const P=CH_RH[g.feel]||CH_RH.pop, pat=wpick(P); let prev=null; const seventh=!!M.seventh||g.feel==='jazz';
   for(let b=0;b<o.bars;b++){ const ch=o.prog[b%o.prog.length], vc=voiceChord(ch,prev,4+M.reg,seventh,n,!!M.add9); prev=vc;
@@ -271,11 +307,11 @@ function genChords(o){ const g=genreP(), M=moodP(), n=scaleN(), notes=[]; const 
 function genBass(o){ const g=genreP(), n=scaleN(), notes=[], P=BASS_RH[g.feel]||BASS_RH.pop, pat=wpick(P);
   for(let b=0;b<o.bars;b++){ const ch=o.prog[b%o.prog.length], r=ch>=4?ch-n:ch, nx=o.prog[(b+1)%o.prog.length], rn=nx>=4?nx-n:nx;
     const rh=o.energy>.7&&P.length>1&&b%2===1?P[(P.indexOf(pat)+1)%P.length]:pat;
-    rh.forEach(([s,d,iv],i)=>notes.push({t:b*16+s,d,n:r+(iv===7?n:(iv||0)),v:i===0?.95:.8}));
+    const ct=chordTones(ch); rh.forEach(([s,d,iv],i)=>notes.push({t:b*16+s,d,n:r+(iv===7?n:iv===4?ct[2]-ch===4?4:2:(iv||0)),v:i===0?.95:.8}));
     if(o.energy>.42&&Math.random()<.55&&rn!==r&&b<o.bars-1){ const last=notes[notes.length-1]; if(last.t<b*16+14){ last.d=Math.min(last.d,b*16+14-last.t); notes.push({t:b*16+14,d:2,n:rn+(rn>r?-1:1),v:.72}); } } }
   return {notes}; }
 function genArp(o){ const M=moodP(), n=scaleN(), notes=[], rate=o.energy>.62?1:2, shape=wpick(['up','down','updown','broken']), base=4+M.reg*2;
-  for(let b=0;b<o.bars;b++){ const ch=o.prog[b%o.prog.length]; const tones=[ch,ch+2,ch+4,ch+n].map(t=>nearestTone([t],base+(t-ch),n)).sort((a,c)=>a-c);
+  for(let b=0;b<o.bars;b++){ const ch=o.prog[b%o.prog.length]; const tones=[...chordTones(ch),ch+n].map(t=>nearestTone([t],base+(t-ch),n)).sort((a,c)=>a-c);
     const seq=shape==='up'?tones:shape==='down'?[...tones].reverse():shape==='updown'?[...tones,...tones.slice(1,-1).reverse()]:[tones[0],tones[2],tones[1],tones[3]];
     for(let s=0,i=0;s<16;s+=rate,i++) notes.push({t:b*16+s,d:rate,n:seq[i%seq.length],v:+(s%4===0?.82:.6).toFixed(2)}); }
   return {notes}; }
@@ -285,23 +321,27 @@ function genPad(o){ const M=moodP(), n=scaleN(), notes=[]; let prev=null;
   return {notes}; }
 function genCounter(o){ const n=scaleN(), notes=[]; let cur=2;
   for(let b=0;b<o.bars;b++){ const ch=o.prog[b%o.prog.length]; const split=o.energy>.5&&Math.random()<.6;
-    [[0,split?8:16],...(split?[[8,8]]:[])].forEach(([s,d],i)=>{ const t=nearestTone([ch+2,ch+4,ch+(i?1:2)],cur,n); cur=t; notes.push({t:b*16+s+(i?0:wpick([0,2,4],[3,1,1])),d:d-(i?0:0),n:t,v:.66}); }); }
+    [[0,split?8:16],...(split?[[8,8]]:[])].forEach(([s,d],i)=>{ const ct=chordTones(ch), t=nearestTone([ct[1],ct[2],ch+(i?1:2)],cur,n); cur=t; notes.push({t:b*16+s+(i?0:wpick([0,2,4],[3,1,1])),d:d-(i?0:0),n:t,v:.66}); }); }
   return {notes}; }
 function genTexture(o){ const n=scaleN(), notes=[]; for(let b=0;b<o.bars;b+=2){ const ch=o.prog[b%o.prog.length]; notes.push({t:b*16,d:Math.min(32,(o.bars-b)*16),n:ch,v:.6}); notes.push({t:b*16,d:Math.min(32,(o.bars-b)*16),n:ch+4,v:.5});
     if(Math.random()<.6) notes.push({t:b*16+wpick([6,10,20]),d:6,n:ch+n+wpick([2,4]),v:.45}); } return {notes}; }
 function genDrums(o){
   const g=genreP(), M=moodP(), notes=[], P=DRUM_RH[g.feel]||DRUM_RH.pop; const main=wpick(P);
   const add=(s,pc,v)=>{ if(!notes.some(x=>x.t===s&&x.n===pc)) notes.push({t:s,d:1,n:pc,v:+v.toFixed(2)}); };
+  const alt=P.length>1&&Math.random()<.5?wpick(P.filter(x=>x!==main)):null;
+  const backbeat=!!(main.s||main.c||main.r), extraHat=[], ghosts=[];
+  if(o.energy>.6&&(main.h||'').indexOf('xx')<0) for(let s=1;s<16;s+=2) if(Math.random()<(o.energy-.55)*.9) extraHat.push(s);
+  if(backbeat&&main.s&&o.energy>.4&&!QUANTIZED.has(g.feel)&&o.rel!=='build'){ const free=[7,9,15,3,10].filter(s=>(main.s[s]||'.')==='.'&&(main.k||'')[s]!=='x'); const k=o.energy>.7?2:1; while(ghosts.length<k&&free.length) ghosts.push(free.splice(Math.floor(Math.random()*Math.min(3,free.length)),1)[0]); }
   for(let b=0;b<o.bars;b++){
-    const last=b===o.bars-1, pat=(b%2===1&&P.length>1&&Math.random()<.35)?wpick(P):main;
+    const last=b===o.bars-1, pat=(b%4===3&&alt&&o.bars>=4)?alt:main;
     if(o.rel==='build'){ // density rises toward the end
       const prog=(b+1)/o.bars; add(b*16,0,1); if(b%2===0) add(b*16+8,0,.9);
       const step=prog>.75?1:prog>.5?2:4; for(let s=0;s<16;s+=step) add(b*16+s,1,.35+.6*((b*16+s)/(o.bars*16)));
       for(let s=0;s<16;s+=2) add(b*16+s,4,.55); continue; }
     Object.entries(pat).forEach(([k,str])=>{ const pc=DRUM_PIECE[k]; if(pc==null) return; for(let s=0;s<16;s++){ const c=str[s]; if(c==='.'||!c) continue; add(b*16+s,pc,c==='X'?1:c==='o'?.45:.82); } });
-    if(o.energy>.6&&(pat.h||'').indexOf('xx')<0) for(let s=1;s<16;s+=2) if(Math.random()<(o.energy-.55)*.9) add(b*16+s,4,.4);
+    extraHat.forEach(s=>add(b*16+s,4,.4)); ghosts.forEach(s=>add(b*16+s,1,.24));
     if(o.energy<.3) for(let i=notes.length-1;i>=0;i--){ const x=notes[i]; if(x.t>=b*16&&x.n===4&&x.t%4!==0&&Math.random()<.5) notes.splice(i,1); }
-    if((M.toms||o.lift)&&b%2===1){ [12,13,14,15].forEach((s,i)=>add(b*16+s,[8,7,7,6][i],.75)); }
+    if((M.toms||o.lift)&&b%4===3){ [12,13,14,15].forEach((s,i)=>add(b*16+s,[8,7,7,6][i],.75)); }
     if(last&&o.rel!=='layer'&&o.bars>=2&&Math.random()<.55){ for(let i=notes.length-1;i>=0;i--) if(notes[i].t>=b*16+12&&notes[i].n!==0) notes.splice(i,1); [[12,8],[13,8],[14,7],[15,6]].forEach(([s,pc])=>add(b*16+s,g.feel==='raga'?14:pc,.8)); }
   }
   if(o.lift||o.rel==='bridge') add(0,9,.9);
@@ -348,7 +388,7 @@ function rerollCard(card){ const s={...card.spec}; if(s.rel!=='layer'&&s.rel!=='
 /* ---------- anchor + deck ---------- */
 function anchorFromClip(tr,c){
   const role=c.magic&&c.magic.role||trackRole(tr); let seed=null;
-  if(c.magic&&c.magic.motif) seed={rhythm:c.magic.motif.rhythm,last:c.magic.last};
+  if(c.magic&&c.magic.motif) seed={rhythm:c.magic.motif.rhythm,shape:c.magic.motif.shape,last:c.magic.last};
   else if(tr.kind!=='drum'){ const fl=flatten(c); if(fl.length){ const last=fl.reduce((m,e)=>e.at>m.at?e:m,fl[0]); seed={last:last.n}; } }
   return {tr,c,role,start:c.start,end:clipEnd(c),seed};
 }
@@ -516,6 +556,9 @@ function craftTrack(opts){
   const song=newSong(), lo=Math.max(g.bpm[0],M.bpm[0]-8), hi=Math.min(g.bpm[1],M.bpm[1]+8);
   song.bpm=opts.bpm||Math.round(lo<=hi?lo+Math.random()*(hi-lo):(g.bpm[0]+g.bpm[1])/2); song.scale=U.scale||(gname==='Raga'?'Bhairav':M.scales[0]);
   song.root=wpick([0,2,4,5,7,9,10,1,3]); song.swing=Math.max(g.swing||0,M.swing||0);
+  /* a learned taste brings its own key; its energy arc shapes the sections below */
+  const LT=g.learned; if(LT&&LT.key&&!U.scale){ song.root=LT.key.r; song.scale=LT.key.mode==='minor'?(M.scales.find(x=>/Minor|Dorian|Phrygian/.test(x))||'Minor'):(M.scales.find(x=>/Major|Lydian/.test(x))||'Major'); }
+  const tasteArc=pos=>{ const a=LT&&LT.arc; if(!a||!a.length) return 1; const x=clamp(pos,0,1)*(a.length-1), k=Math.floor(x), f=x-k; return .65+.55*((a[k]??1)*(1-f)+(a[k+1]??a[k]??1)*f); };
   song.human=g.human??(QUANTIZED.has(g.feel)?.12:.4);
   // the training set mixes sit warm: start a notch darker unless the genre is bright by nature
   song.master={...song.master,tone:-.1,width:1.55,...({lofi:{tape:.6,warble:.2},edm:{pump:.5,glue:.5,tone:0},four:{pump:.5,tone:0},phonk:{tape:.35,glue:.55},slow:{space:.9,size:6},drone:{space:1,size:7},cine:{space:.8,size:5}}[g.feel]||{}),...(g.master||{})};
@@ -538,8 +581,9 @@ function craftTrack(opts){
       const nx=secsPlan[si+1], bars=sec.bars, base=progs[sec.p], prog=[]; for(let b=0;b<bars;b++) prog.push(base[b%base.length]);
       if(nx&&(nx.key==='chorus'||nx.key==='hit'||nx.key==='button')&&bars>=2) prog[bars-1]=4;
       if(sec.button) prog[0]=0;
+      if(!nx&&!sec.button&&bars>=2){ prog[bars-1]=0; if(prog[bars-2]!==4&&prog[bars-2]!==3) prog[bars-2]=4; }
       prog.forEach((ch,i)=>song.magic.prog[bar+i]=ch);
-      const pos=(bar+bars/2)/total, energy=clamp(short?MAGIC.energy*(.45+arcAt(pos)*.75):MAGIC.energy*sec.e,0.05,1);
+      const pos=(bar+bars/2)/total, energy=clamp((short?MAGIC.energy*(.45+arcAt(pos)*.75):MAGIC.energy*sec.e)*tasteArc(pos),0.05,1);
       roles.forEach(role=>{ if(!sec.roles.includes(role)) return; const tr=tracks[role];
         let r, notes;
         if(sec.button){ // one last downbeat, left to ring
@@ -548,7 +592,7 @@ function craftTrack(opts){
           r={notes,last:null};
         } else {
           r=GEN[role]({bars,prog,energy,seed:role==='melody'?motifs[sec.p]:null,rel:motifs[sec.p]&&role==='melody'?'next':'start',lift:!!sec.lift,cadence:nx?'open':'home'});
-          if(role==='melody'&&!motifs[sec.p]) motifs[sec.p]={rhythm:r.motif.rhythm,last:r.last};
+          if(role==='melody'&&!motifs[sec.p]) motifs[sec.p]={rhythm:r.motif.rhythm,shape:r.motif.shape,last:r.last};
           notes=r.notes;
           if(role==='drums'){ if(nx&&(nx.key==='chorus'||nx.key==='hit')&&bars>=2&&sec.key!=='intro'&&sec.key!=='calm'){ const fill=genDrums({bars:1,prog,energy:Math.min(1,energy+.2),rel:'build'}).notes.map(x=>({...x,t:x.t+(bars-1)*16})); notes=notes.filter(x=>x.t<(bars-1)*16).concat(fill); }
             if(sec.lift) notes.push({t:0,d:1,n:9,v:.9}); if(sec.key==='rise') notes=genDrums({bars,prog,energy,rel:'build'}).notes; }
@@ -624,7 +668,7 @@ function renderMagicControls(){
   $('mgBars').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===MAGIC.bars));
   $('mgLen').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===MAGIC.len));
   const ls=fmtMS(MAGIC.len); $('mgLenN').textContent=ls;
-  $('mgMake').textContent=`✦ Make a ${ls} ${MAGIC.use?MAGIC.use.toLowerCase()+' ':''}track`;
+  setLabel($('mgMake'),`Make a ${ls} ${MAGIC.use?MAGIC.use.toLowerCase()+' ':''}track`);
   $('mgMatch').textContent=`${genreName()} · ${MAGIC.mood.toLowerCase()}${MAGIC.use?' · for '+MAGIC.use.toLowerCase():''}`;
 }
 function genreNameAny(){ const g=MAGIC.genre; MAGIC.genre='Any'; const n=genreName(); MAGIC.genre=g; return n; }
@@ -767,7 +811,15 @@ function drawPlacement(g,X,k,W){
 }
 function matchMood(){ const M=moodP(); pushHist(); if(!M.scales.includes(S.scale)) S.scale=M.scales[0]; if(S.bpm<M.bpm[0]||S.bpm>M.bpm[1]) S.bpm=Math.round((M.bpm[0]+M.bpm[1])/2); if(M.swing!=null) S.swing=M.swing; if(G) applyGraph(G); persist(); renderHeader(); renderMagicControls(); requestDraw(); buildDeck(); toast(`Now ${NOTE_NAMES[S.root]} ${S.scale.toLowerCase()} at ${S.bpm} BPM. Notes keep their place in the scale.`,[{label:'Undo',fn:()=>{ undo(); renderMagicControls(); }}]); }
 document.addEventListener('click',e=>{ if(PLACE.card&&PLACE.mode==='select'&&!e.target.closest('.mcard,#lanesCv,#placeBar,.mg-deckwrap,.wstool,.pop')) cancelPlace(); },true);
+function registerMagicControls(){
+  const G1='Magic';
+  control({id:'mgmake',group:G1,label:'Make a track',icon:'magic',tip:'Write a full track in the chosen mood and length',run:()=>$('mgMake').click()});
+  control({id:'mggen',group:G1,label:'Deal ideas',icon:'dice',tip:'Deal fresh Magic suggestions',run:()=>$('mgGen').click()});
+  control({id:'mgcraft',group:G1,label:'Craft next',icon:'right',tip:'Write the next bars on every playing track',run:()=>$('mgCraft').click()});
+  control({id:'mgslow',group:G1,label:'Slowed + reverb',icon:'wave',run:()=>$('mgSlowed').click()});
+}
 function initMagic(){
+  registerMagicControls();
   $('mgGen').onclick=()=>{ MAGIC.anchor=MAGIC.anchor; buildDeck(); const D=$('mgDeck'); D.classList.remove('dealt'); void D.offsetWidth; D.classList.add('dealt'); };
   $('mgShuffle').onclick=()=>{ stopCardPreview(); MAGIC.deck=MAGIC.deck.map(rerollCard); renderDeck(); const D=$('mgDeck'); D.classList.remove('dealt'); void D.offsetWidth; D.classList.add('dealt'); };
   $('mgCraft').onclick=craftNext;
@@ -780,7 +832,7 @@ function initMagic(){
   $('mgLen').querySelectorAll('button').forEach(b=>b.onclick=()=>{ MAGIC.len=+b.dataset.v; saveMagic(); renderMagicControls(); });
   $('mgMake').onclick=craftTrack;
   $('mgSlowed').onclick=slowedReverb;
-  $('mgLearn').onclick=()=>$('mgLearnFile').click(); $('mgLearnFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) learnFromFile(f); };
+  $('mgLearn').onclick=()=>typeof openAgent==='function'?openAgent():$('mgLearnFile').click(); $('mgLearnFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) learnFromFile(f); };
   $('mgLearned').onclick=e=>{ const p=$('pop'); p.className='pop clipmenu learnedpop'; p.innerHTML=`<div class="rackhead"><span class="lbl">studied ${TRAINED.tracks} reference tracks</span><button class="btn ghost" data-x>Close</button></div><ol class="learnlist">${TRAINED.rules.map(r=>'<li></li>').join('')}</ol><p class="hint" style="margin:0">Learned styles you add with “Learn from a track” appear as ★ chips. Right-click one to forget it.</p>`;
     p.querySelectorAll('.learnlist li').forEach((li,i)=>li.textContent=TRAINED.rules[i]); p.querySelector('[data-x]').onclick=closePop; const r=e.currentTarget.getBoundingClientRect(); placePop(p,r.left,r.bottom+6); };
   const di=$('mgDescribe'); let dt=null;

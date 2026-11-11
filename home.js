@@ -1,6 +1,6 @@
 /* KYMA · home — choose a studio, manage projects
    The open project is whichever you picked last; each studio card opens it in that studio. */
-const STUDIO_NAMES={compose:'Compose',atmos:'Atmosphere',video:'Video',dj:'DJ'};
+const STUDIO_NAMES={compose:'Compose',hum:'Hum',video:'Video',atmos:'Atmosphere',dj:'DJ'};
 const KEYS=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const H={q:'',sel:null};
 const fmtLen=(len,bpm)=>{ if(!len||!bpm) return ''; const s=Math.round(len*60/bpm/4); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
@@ -68,6 +68,7 @@ function remove(m){
 (function initHome(){
   const migrated=Store.migrate(); if(migrated&&!Store.current()) Store.setCurrent(migrated.id);
   document.querySelectorAll('.studio').forEach(a=>a.addEventListener('click',e=>{ e.preventDefault(); go(a.dataset.studio); }));
+  const mk=document.querySelector('.k-mascot'); if(mk){ mk.addEventListener('click',()=>{ mk.classList.remove('hop'); void mk.offsetWidth; mk.classList.add('hop'); }); mk.addEventListener('animationend',e=>{ if(e.animationName==='k-hop') mk.classList.remove('hop'); }); }
   $('hNew').onclick=()=>{ const p=newProject(); renderAll(); toast('“'+p.name+'” is ready. Pick a studio to start.'); };
   $('hImport').onclick=()=>$('hFile').click();
   $('hFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const p=Store.fromFile(await f.text()); Store.put(p); Store.sync(p); Store.setCurrent(p.id); renderAll(); toast('Opened “'+(p.song&&p.song.name||p.name||'project')+'”. Pick a studio.'); }catch(err){ toast('That file isn’t a Kyma project.'); } };

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hum · Kyma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..600&family=Geist+Mono:wght@300..500&display=swap">
+<link rel="stylesheet" href="kyma.css">
+<link rel="stylesheet" href="timeline.css">
+<link rel="stylesheet" href="magic.css">
+<link rel="stylesheet" href="hum.css">
+<style>[hidden]{display:none!important}</style>
+</head>
+<body class="studio-hum">
+<div class="app" id="app" data-studio="hum">
+  <header class="cmdbar" id="cmdbar" aria-label="Project and transport">
+    <div class="cb-r1">
+      <div class="cb-id">
+        <button id="homeBtn" class="cb-home" title="All studios and projects" aria-label="Back to the Kyma home screen" data-icon="back"></button>
+        <div class="cb-brand"><div class="cb-logo"><svg class="wordmark" role="img" aria-label="Kyma" viewBox="0 0 116 32" fill="currentColor"><path d="M93.9072 8.00663L92.5469 2.44863C94.7234 1.08828 98.8045 0 102.73 0C108.055 0 113.185 2.02109 113.108 8.0455L113.069 13.7201V13.7978C113.069 15.5469 113.185 16.2853 115.012 16.2853H115.284V21.5713C109.726 21.5713 106.384 21.2215 105.801 18.1121C104.324 20.4441 101.409 21.7267 97.4053 21.7656C92.9355 21.8045 90.7979 19.0449 90.7979 16.0521C90.7979 12.3598 94.0627 8.23983 100.398 8.5119L103.158 8.58964C104.246 8.66737 105.567 8.62851 105.684 7.54023V7.38476C105.684 6.29648 104.44 5.90781 102.769 5.90781C99.6984 5.90781 95.1898 7.19042 93.9072 8.00663ZM105.684 12.9428C105.023 13.3703 104.168 13.6035 103.119 13.6035H100.631C99.3486 13.5646 98.6879 14.2642 98.6879 14.925C98.6879 15.5857 99.3486 16.2465 100.709 16.2076C102.03 16.1687 105.567 15.7412 105.684 13.0205V12.9428Z"/><path d="M59.3531 21.5713H51.9684V7.77342C51.9684 6.95721 51.9684 5.83007 51.0355 5.83007H50.1416V0.583002H51.0355C51.3854 0.583002 51.8129 0.583002 52.3182 0.583002C54.7279 0.583002 58.6146 0.777337 59.2754 3.3037C60.4025 1.55468 62.1904 0.155464 64.8334 0.155464C68.7978 0.155464 71.2465 1.43808 72.4513 4.04218C73.2676 1.94335 75.0166 0.155464 78.5146 0.155464C84.5002 0.155464 87.0265 3.14823 87.0265 9.21151V13.8367C87.0265 15.5857 87.4541 16.3242 89.242 16.3242H89.514L89.5529 21.5713C88.9699 21.5713 88.2703 21.6101 87.4929 21.6101C84.0726 21.6101 79.6418 21.1826 79.6418 16.6351V10.6885C79.6418 7.15155 78.6701 5.59686 76.4935 5.59686C74.3558 5.59686 73.5008 7.50135 73.3842 10.8051V21.5713H65.9994V10.6885C65.9994 7.15155 64.9111 5.59686 62.6957 5.59686C60.4414 5.59686 59.3531 7.77342 59.392 11.5824H59.3531V21.5713Z"/><path d="M26.2756 12.9039V0.583015H33.6603V12.9039C33.6603 15.2359 35.3316 16.2853 37.1584 16.2853C39.2572 16.2853 41.5115 14.8473 41.5115 12.3209V0.583015H48.8963V19.2781C48.8963 27.4402 42.5221 31.3269 34.2822 31.3269C31.6781 31.3269 28.4521 30.433 26.1201 29.267L27.2084 22.543C29.0352 23.9033 32.3389 24.7973 35.2928 24.7973C39.6459 24.7973 41.5504 23.0094 41.5504 19.5891V18.6562C39.918 20.9883 37.3139 22.1543 34.7098 22.1543C30.5121 22.1543 26.2756 19.0838 26.2756 12.9039Z"/><path d="M0 21.5713V0.424309H7.38476V6.21876L13.5646 0.583019H23.126L13.4092 9.28926C18.3842 8.93946 19.4724 15.1582 24.875 15.1193V21.96C14.5363 21.96 13.0205 12.7096 8.90058 13.2926L7.38476 14.6918V21.5713H0Z"/></svg><span class="beta">beta</span></div><span class="cb-studio">Hum studio</span></div>
+      </div>
+      <div class="cb-file">
+        <label class="cb-field cb-namefield"><span class="cb-cap">project <i id="saveState" class="savestate" aria-live="polite"></i></span>
+          <input id="projName" class="cb-name" aria-label="Project name" value="Untitled" spellcheck="false" title="Rename the project"></label>
+        <div class="cb-filebtns" role="group" aria-label="Project file">
+          <button id="newBtn" class="ibtn icon" title="New project in this studio" aria-label="New project" data-icon="new"></button>
+          <button id="openBtn" class="ibtn icon" title="Open a .kyma project file" aria-label="Open a project file" data-icon="open"></button>
+          <button id="saveBtn" class="ibtn strong" title="Save the project (⌘S / Ctrl S)" data-icon="save"><span class="ib-t">Save</span></button>
+          <button id="fileBtn" class="ibtn icon" aria-haspopup="menu" aria-label="More file actions" title="Save a copy, download or open a project file" data-icon="more"></button>
+        </div>
+      </div>
+      <div class="cb-act">
+        <div class="cb-pins" id="cbPins" role="group" aria-label="Your header controls"></div>
+        <button id="masterBtn" class="ibtn" title="The song's mix bus: space, glue, tape, width, tone" data-icon="sliders"><span class="ib-t">Master</span></button>
+        <div class="seg modesw" id="modeSw" role="group" aria-label="How much of the studio to show" title="Simple shows only what you need to make a track. Pro shows every control."><button type="button" data-m="simple" aria-pressed="true">Simple</button><button type="button" data-m="pro" aria-pressed="false">Pro</button></div>
+        <button id="exportBtn" class="cta hot" title="Render the song as a mastered WAV, with stems if you like"><span class="cta-ic" data-icon="export"></span><span class="cta-t">Export</span></button>
+      </div>
+    </div>
+    <div class="cb-r2">
+      <div class="cb-transport" role="group" aria-label="Transport">
+        <button id="restartBtn" class="cb-round" aria-label="Back to the start" title="Back to the start (Home)" data-icon="restart"></button>
+        <button id="playBtn" class="cb-play" aria-label="Play (Space)" title="Play / pause (Space)"></button>
+        <button id="recBtn" class="cb-rec" title="Record everything you hear, live (Z)"><i></i><span id="recLbl">REC</span></button>
+        <button id="loopBtn" class="cb-round toggle" aria-pressed="true" aria-label="Loop" title="Loop the song (or the selection) instead of stopping at the end" data-icon="loop"></button>
+      </div>
+      <div class="cb-field cb-time" title="Where you are / total song length"><span class="cb-cap">time <small id="clockMode">LOOP</small></span><div class="clock"><b id="clockNow">00:00<i>.0</i></b><span class="ctot">/ <b id="clockTot">0:00</b></span></div></div>
+      <div class="cb-field cb-pos" title="Bar and beat at the playhead"><span class="cb-cap">bar · beat</span><b id="clockBar" class="cb-read">001.1</b></div>
+      <div class="cb-field cb-bpm" title="This project's tempo"><span class="cb-cap">tempo · bpm</span>
+        <div class="cb-ctl"><button id="bpmDown" class="cb-step" aria-label="Slower">−</button><input id="bpm" type="number" min="40" max="220" inputmode="numeric" aria-label="Tempo in BPM"><button id="bpmUp" class="cb-step" aria-label="Faster">+</button><button id="tapBtn" class="cb-tap" title="Tap the beat to set the tempo (T)">tap</button></div></div>
+      <div class="cb-field cb-key" title="This project's key"><span class="cb-cap">key</span>
+        <div class="cb-ctl"><select id="root" class="sel" aria-label="Root note"></select><select id="scale" class="sel" aria-label="Scale"></select></div></div>
+      <div class="cb-field cb-out" title="Output level, left and right"><span class="cb-cap">output</span><div class="cb-meter" id="cbMeter"><i></i><i></i></div></div>
+    </div>
+    <input id="openFile" type="file" accept=".kyma,.spectral,.json,application/json" hidden>
+  </header>
+  <section class="humdesk bento" aria-label="Hum studio">
+    <div class="tile tile-ink hd-rec">
+      <div class="hd-top"><span class="lbl">voice in</span><span class="grow"></span>
+        <div class="seg seg-dark hd-mode" id="hdMode" role="group" aria-label="What you are recording"><button data-v="hum">Hum a melody</button><button data-v="beat">Beatbox a beat</button></div></div>
+      <div class="hd-scope"><canvas id="hdScope" aria-hidden="true"></canvas>
+        <div class="hd-read"><span class="lbl" id="hdReadL">pitch</span><b id="hdNote">—</b><small id="hdState">ready</small></div></div>
+      <div class="hd-go">
+        <button class="hd-big" id="hdRec" aria-label="Start recording" title="Start recording (R)"><span class="hd-dot"></span></button>
+        <div class="hd-gotxt"><b id="hdGoT">Start humming</b><span id="hdGoS"></span></div>
+      </div>
+    </div>
+    <div class="tile tile-paper hd-set">
+      <div class="hd-field"><span class="lbl">into</span><select id="hdTrack" class="sel" aria-label="Track to record into"></select></div>
+      <div class="hd-field"><span class="lbl" id="hdAsL">plays as</span><div class="mchips" id="hdAs"></div></div>
+      <div class="hd-field" id="hdStyleRow"><span class="lbl">notes</span><div class="seg" id="hdStyle" role="group" aria-label="Note style"><button data-v="smooth" title="Held notes stay held and glide like your voice">Smooth</button><button data-v="detail" title="A separate note for every syllable">Every syllable</button></div></div>
+      <div class="hd-field"><span class="lbl">length</span><div class="seg" id="hdLen" role="group" aria-label="How long to record"><button data-v="song">Whole song</button><button data-v="head">From playhead</button><button data-v="open">Until I stop</button></div></div>
+      <label class="check"><input type="checkbox" id="hdBacking"> <span>Play the other tracks while I record (headphones help)</span></label>
+      <label class="check"><input type="checkbox" id="hdReplace"> <span>Replace what is already on the track in that stretch</span></label>
+    </div>
+    <div class="tile tile-sand hd-guide">
+      <span class="lbl" id="hdGuideL">how to hum</span>
+      <div class="hd-tips" id="hdGuide"></div>
+      <div class="hd-acts"><button class="cta glass" id="hdFile" title="Turn a recording of your voice into notes"><span class="cta-ic" data-icon="upload"></span><span class="cta-t">Use a recording</span></button><button class="cta ink" id="hdCompose"><span class="cta-ic" data-icon="right"></span><span class="cta-t">Open in Compose</span></button></div>
+    </div>
+  </section>
+  <section class="panel ws" aria-label="Timeline workspace">
+    <div class="wstool" role="toolbar" aria-label="Timeline tools">
+      <div class="grp">
+        <button class="cta ink" id="addTrack" title="Add an instrument track"><span class="cta-ic" data-icon="track"></span><span class="cta-t">Track</span></button>
+        <button class="cta rec" id="humBtn" title="Hum (or beatbox) into the selected track (H)"><span class="cta-ic" data-icon="mic"></span><span class="cta-t">Hum</span></button>
+        
+      </div>
+      <span class="sep"></span>
+      <div class="grp">
+        <button id="copyBtn" class="btn" title="Copy clips, notes or the selected range (Ctrl/⌘ C)">Copy</button>
+        <button id="pasteBtn" class="btn" title="Paste onto the selected track at the playhead (Ctrl/⌘ V)" disabled>Paste</button>
+        <button id="dupBtn" class="btn" title="Duplicate right after itself (Ctrl/⌘ D)">Duplicate</button>
+        <button id="splitBtn" class="btn" title="Split clips at the playhead (S)">Split</button>
+        <button id="delBtn" class="btn" title="Delete the selection (Delete)">Delete</button>
+        <button id="blendBtn" class="btn" disabled>Blend…</button>
+      </div>
+      <span class="sep"></span>
+      <div class="grp"><span class="lbl">Snap</span><div class="seg" id="snapSeg" role="group" aria-label="Snap"><button data-v="1">1/16</button><button data-v="4">Beat</button><button data-v="16">Bar</button></div></div>
+      <div class="grp"><span class="lbl">Zoom</span><input id="zoom" type="range" min="0" max="100" aria-label="Zoom"><button id="zoomFit" class="btn ghost" title="Fit the whole song">Fit</button></div>
+      <div class="grp songlen" style="margin-left:auto"><span class="lbl">Song length</span><input id="songLenIn" aria-label="Song length in minutes:seconds" spellcheck="false" title="Type a length like 1:00 and press Enter"><small id="songBars"></small></div>
+    </div>
+    <div class="wsopts">
+      <span>Press <b>Hum</b> or a track’s mic to record over the whole song in one take.</span>
+      <label class="check"><input type="checkbox" id="loopSel"> <span>Loop the selected range</span></label>
+      <input type="file" id="humFile" accept="audio/*" hidden>
+    </div>
+    <div class="wsbody">
+      <div class="heads" id="heads"></div>
+      <div class="lanes" id="lanes"><div id="lanesInner"><canvas id="lanesCv" aria-label="Timeline. Clips for every track over the song. Drag to move, trim and fade clips; drag across empty lanes to select a range."></canvas></div></div>
+    </div>
+    <p class="wshint" id="wsHint" aria-live="polite"></p>
+  </section>
+
+  <p class="foot">Hum a melody or beatbox a beat and Kyma writes it down on the timeline below: pitch becomes notes in the song’s key, “boom”, “ka” and “ts” become kick, snare and hat. Your voice is processed in the browser and never uploaded. Keys: <kbd>R</kbd> record or stop · <kbd>Space</kbd> play · <kbd>⌘/Ctrl Z</kbd> undo · <kbd>⌘/Ctrl S</kbd> save.</p>
+</div>
+<div class="sheet" id="exportSheet" hidden role="dialog" aria-modal="true" aria-labelledby="exTitle">
+  <div class="sheetcard">
+    <div class="rackhead"><h3 id="exTitle">Export</h3><button class="btn ghost" id="exClose" aria-label="Close">Close</button></div>
+    <div class="sheetrow"><span class="lbl">Length</span><div class="seg" id="exRange"><button data-v="song">Whole song</button><button data-v="sel">Selected range</button></div></div>
+    <div class="sheetrow"><span class="lbl">Loudness</span><div class="seg" id="exLoud"><button data-v="-18">Dynamic −18</button><button data-v="-14">Streaming −14</button><button data-v="-9">Loud −9</button></div></div>
+    <label class="check"><input type="checkbox" id="exStems"> <span>Include stems, one WAV per track (pre-master, with its reverb and echo)</span></label>
+    <div class="progress"><i id="exBar"></i></div>
+    <div class="status" id="exStatus">48 kHz · 24-bit WAV · −1 dBFS ceiling · project file included</div>
+    <div class="stats" id="exStats" hidden></div>
+    <div class="sheetactions">
+      <button class="btn" id="exPreview" hidden>Preview master</button>
+      <button class="btn" id="exSave" hidden>Save .zip</button>
+      <button class="btn primary" id="exRender">Render</button>
+    </div>
+  </div>
+</div>
+<div class="sheet" id="browser" hidden role="dialog" aria-modal="true" aria-labelledby="brTitle">
+  <div class="sheetcard browser">
+    <div class="rackhead"><h3 id="brTitle">Add an instrument track</h3><button class="btn ghost" id="brClose" aria-label="Close">Close</button></div>
+    <input id="brSearch" class="brsearch" placeholder="Search: guitar, sitar, 808, bell, choir…" aria-label="Search instruments" spellcheck="false">
+    <div class="brwrap"><div class="brcats" id="brCats" role="group" aria-label="Categories"></div><div class="brlist" id="brList"></div></div>
+    <div class="brfoot"><span class="lbl" id="brCount"></span><p class="hint" id="brNote"></p><b id="brSel"></b><button class="btn primary" id="brUse">Add track</button></div>
+  </div>
+</div>
+<div class="sheet" id="blendSheet" hidden role="dialog" aria-modal="true" aria-labelledby="blTitle">
+  <div class="sheetcard wide">
+    <div class="rackhead"><h3 id="blTitle">Blend two clips</h3><button class="btn ghost" id="blendClose" aria-label="Close">Close</button></div>
+    <p class="hint" id="blendInfo" style="margin:0"></p>
+    <div class="blendlist" id="blendList" role="radiogroup" aria-label="Transition"></div>
+    <div class="sheetrow"><span class="lbl">Length</span><div class="seg" id="blendLen"><button data-v="4">1 beat</button><button data-v="8">2 beats</button><button data-v="16">1 bar</button><button data-v="32">2 bars</button></div></div>
+    <label class="check"><input type="checkbox" id="blendMove"> <span>Move the second clip so the two meet (overlapping for crossfades)</span></label>
+    <div class="sheetactions"><button class="btn primary" id="blendApply">Blend</button></div>
+  </div>
+</div>
+<div class="pop" id="pop" hidden></div>
+<div class="humhud" id="humHud" hidden role="status" aria-live="polite"><span class="hdot"></span><div class="hhtxt"><b id="hhTitle"></b><span id="hhTime"></span></div><div class="hhbar"><i id="hhFill"></i></div><button class="btn rec" id="hhStop">■ Stop and make notes</button><button class="btn ghost" id="hhCancel">Cancel</button></div>
+<div class="toast" id="toast" hidden></div>
+<footer class="dock" id="dock" aria-label="Your dock" data-open="true">
+  <button class="dk-handle" id="dockToggle" aria-expanded="true" aria-controls="dockRow"><span class="dk-chev" data-icon="chevDown"></span><span class="dk-title">Dock</span><span class="dk-count" id="dockCount">0</span></button>
+  <div class="dk-row" id="dockRow" role="toolbar" aria-label="Your controls"></div>
+  <button class="dk-edit" id="dockEdit" title="Choose what lives in the dock and the header" data-icon="pin"><span>Customise</span></button>
+</footer>
+<div class="sheet" id="dockSheet" hidden>
+  <div class="sheetcard wide dksheet" role="dialog" aria-modal="true" aria-labelledby="dkT">
+    <div class="rackhead"><div><span class="lbl">your panels</span><h3 id="dkT">Pin the controls you reach for</h3></div><button class="btn primary" id="dkDone">Done</button></div>
+    <p class="hint">The dock stays at the bottom of every screen in this studio and folds away when you need room. Header pins sit next to Export. Your choice is remembered per studio.</p>
+    <div class="dk-cols">
+      <div class="dk-col"><span class="lbl">in the dock</span><div class="dk-mine" id="dkMine"></div></div>
+      <div class="dk-col"><span class="lbl">in the header · up to four</span><div class="dk-mine" id="dkHead"></div></div>
+    </div>
+    <div class="dk-all" id="dkAll"></div>
+    <div class="sheetactions"><button class="btn ghost" id="dkReset">Reset to this studio’s defaults</button></div>
+  </div>
+</div>
+
+<script>window.STUDIO='hum';</script>
+<script src="core-base.js"></script>
+<script src="core-harmony.js"></script>
+<script src="core-dsp.js"></script>
+<script src="core-instruments.js"></script>
+<script src="core-engine.js"></script>
+<script src="core-songgen.js"></script>
+<script src="core-atmos-engine.js"></script>
+<script src="core-output.js"></script>
+<script src="core-recorder.js"></script>
+<script src="core-pitch.js"></script>
+<script src="app-state.js"></script>
+<script src="app-store.js"></script>
+<script src="app-project.js"></script>
+<script src="app-dock.js"></script>
+<script src="app-shell.js"></script>
+<script src="app-timeline.js"></script>
+<script src="feature-hum.js"></script>
+<script src="feature-magic.js"></script>
+<script src="feature-learn.js"></script>
+<script src="studio-hum.js"></script>
+</body>
+</html>

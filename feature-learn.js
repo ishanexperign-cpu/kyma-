@@ -17,8 +17,9 @@ function fftMag(re){ // in-place radix-2 FFT of a real frame, returns magnitudes
 }
 async function analyseTrack(buf,onP){
   const secs=Math.min(buf.duration,180), SR=22050, len=Math.floor(secs*SR);
-  const oc=new OfflineAudioContext(3,len,SR), src=oc.createBufferSource(); src.buffer=buf; const mg=oc.createChannelMerger(3);
-  const lo=bq(oc,'lowpass',150,.7), md=bq(oc,'bandpass',2500,.6), hi=bq(oc,'highpass',6500,.7); src.connect(lo).connect(mg,0,0); src.connect(md).connect(mg,0,1); src.connect(hi).connect(mg,0,2); mg.connect(oc.destination); src.start();
+  const oc=new OfflineAudioContext(4,len,SR), src=oc.createBufferSource(); src.buffer=buf; const mg=oc.createChannelMerger(4);
+  const lo=bq(oc,'lowpass',150,.7), md=bq(oc,'bandpass',2500,.6), hi=bq(oc,'highpass',6500,.7); src.connect(lo).connect(mg,0,0); src.connect(md).connect(mg,0,1); src.connect(hi).connect(mg,0,2); /* fourth channel: the mix itself, band-limited so it can be halved in rate below. One render pass instead of two. */
+  const aa=bq(oc,'lowpass',4800,.7), aa2=bq(oc,'lowpass',4800,.7), mono1=oc.createGain(); mono1.channelCount=1; mono1.channelCountMode='explicit'; src.connect(mono1).connect(aa).connect(aa2).connect(mg,0,3); mg.connect(oc.destination); src.start();
   onP&&onP(.1); const bands=await oc.startRendering(); onP&&onP(.35);
   const hop=256, F=Math.floor(len/hop), env=[0,1,2].map(c=>{ const d=bands.getChannelData(c), e=new Float32Array(F); for(let f=0;f<F;f++){ let s=0; for(let i=f*hop;i<f*hop+hop;i++) s+=d[i]*d[i]; e[f]=Math.log(1e-6+s); } return e; });
   const flux=env.map(e=>{ const o=new Float32Array(F); for(let f=1;f<F;f++) o[f]=Math.max(0,e[f]-e[f-1]); return o; });
@@ -26,6 +27,9 @@ async function analyseTrack(buf,onP){
   const fps=SR/hop; let best=0,bestLag=0;
   for(let bpm=60;bpm<=180;bpm+=.5){ const lag=fps*60/bpm; let s=0,c=0; for(let f=Math.ceil(lag);f<F;f++){ const l=f-lag, i=Math.floor(l), fr=l-i; s+=on[f]*(on[i]*(1-fr)+on[i+1]*fr); c++; }
     const w=Math.exp(-Math.pow(Math.log2(bpm/112),2)*1.2), v=s/c*w; if(v>best){ best=v; bestLag=lag; } }
+  /* refine around the winner in fine steps, so the grid does not drift over a long track */
+  { const b0=60*fps/bestLag, sc=bpm=>{ const lag=fps*60/bpm; let s=0,c=0; for(let f=Math.ceil(lag);f<F-1;f+=2){ const l=f-lag, i=Math.floor(l), fr=l-i; s+=on[f]*(on[i]*(1-fr)+on[i+1]*fr); c++; } return s/c; };
+    let bb=b0, bv=sc(b0); for(let d=-.45;d<=.451;d+=.05){ const v=sc(b0+d); if(v>bv){ bv=v; bb=b0+d; } } bestLag=fps*60/bb; }
   const tempo=60*fps/bestLag; let ph=0,phs=-1; for(let p=0;p<bestLag;p+=1){ let s=0; for(let t=p;t<F;t+=bestLag) s+=on[Math.round(t)]||0; if(s>phs){ phs=s; ph=p; } }
   const beats=[]; for(let t=ph;t<F;t+=bestLag) beats.push(t);
   let dP=0,dS=-1; for(let k=0;k<4;k++){ let s=0; for(let i=k;i<beats.length;i+=4) s+=flux[0][Math.round(beats[i])]||0; if(s>dS){ dS=s; dP=k; } }
@@ -37,7 +41,7 @@ async function analyseTrack(buf,onP){
   offs.sort((x,y)=>x-y); const off=offs.length?offs[Math.floor(offs.length/2)]:.5;
   onP&&onP(.55);
   // key + brightness from FFT frames of the mono mix
-  const oc2=new OfflineAudioContext(1,Math.floor(secs*11025),11025), s2=oc2.createBufferSource(); s2.buffer=buf; s2.connect(oc2.destination); s2.start(); const mono=(await oc2.startRendering()).getChannelData(0);
+  const full=bands.getChannelData(3), mono=new Float32Array(len>>1); for(let i=0;i<mono.length;i++) mono[i]=(full[2*i]+full[2*i+1])*.5;
   const N=4096, chroma=new Float64Array(12); let cen=0,cn=0; const win=new Float32Array(N); for(let i=0;i<N;i++) win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
   for(let o=0;o+N<mono.length;o+=4096){ const fr=new Float32Array(N); for(let i=0;i<N;i++) fr[i]=mono[o+i]*win[i]; const m=fftMag(fr); let num=0,den=0;
     for(let k=1;k<N/2;k++){ const hz=k*11025/N; num+=hz*m[k]; den+=m[k]; if(hz<80||hz>2000) continue; const pc=((Math.round(12*Math.log2(hz/440))+69)%12+12)%12; chroma[pc]+=m[k]; }

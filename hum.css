@@ -1,0 +1,40 @@
+/* KYMA · hum.css — the Hum studio's voice desk */
+.humdesk{grid-template-columns:minmax(320px,1.25fr) minmax(300px,1fr) minmax(260px,.85fr)}
+.hd-rec{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;min-height:330px}
+.hd-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hd-top .grow{flex:1}
+.hd-mode button{font-size:11px;padding:0 12px}
+.hd-scope{position:relative;border-radius:6px;background:#0b0d0e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);min-height:150px;overflow:hidden;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:24px 24px}
+.hd-scope canvas{position:absolute;inset:0;width:100%;height:100%}
+.hd-read{position:absolute;left:14px;top:12px;display:grid;gap:2px}
+.hd-read b{font-family:var(--font-num);font-weight:300;font-size:44px;letter-spacing:-.05em;line-height:1;color:#eef1f0}
+.hd-read small{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--orange)}
+.hd-go{display:flex;align-items:center;gap:16px}
+.hd-big{width:76px;height:76px;border-radius:10px;border:0;background:var(--orange);display:grid;place-items:center;flex:none;transition:background .2s,transform .1s;box-shadow:0 0 0 0 rgba(255,97,61,.45)}
+.hd-big:active{transform:scale(.96)}
+.hd-dot{width:24px;height:24px;border-radius:50%;background:#140802;transition:border-radius .2s,width .2s,height .2s,background .2s}
+.hd-big.rec{background:#eef1f0;animation:hdpulse 1.6s ease-out infinite}
+.hd-big.rec .hd-dot{border-radius:4px;width:22px;height:22px;background:var(--warn)}
+.hd-big.busy{background:#2a3034;cursor:wait}.hd-big.busy .hd-dot{background:var(--orange);animation:recp 1s steps(2) infinite}
+@keyframes hdpulse{0%{box-shadow:0 0 0 0 rgba(255,97,61,.5)}70%{box-shadow:0 0 0 16px rgba(255,97,61,0)}100%{box-shadow:0 0 0 0 rgba(255,97,61,0)}}
+.hd-gotxt{display:grid;gap:3px;min-width:0}
+.hd-gotxt b{font-weight:300;font-size:24px;letter-spacing:-.035em;line-height:1.1}
+.hd-gotxt span{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;opacity:.6}
+.hd-set{display:grid;gap:14px;align-content:start}
+.hd-field{display:grid;gap:7px}
+.hd-field .sel{width:100%}
+.hd-field .seg{justify-self:start;flex-wrap:wrap;height:auto;min-height:32px}
+.hd-guide{display:grid;gap:12px;align-content:start}
+.hd-tips{display:grid;gap:8px}
+.hd-tip{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;font-size:12.5px;line-height:1.5}
+.hd-tip i{font-style:normal;font-family:var(--font-mono);font-size:10px;width:30px;height:22px;border-radius:4px;background:#14171a;color:var(--orange);display:grid;place-items:center}
+.hd-pads{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.hd-pad{display:grid;gap:4px;padding:10px;border-radius:6px;border:0;background:rgba(20,23,26,.07);text-align:left;color:inherit;transition:background .15s}
+.hd-pad:hover{background:rgba(20,23,26,.13)}
+.hd-pad:active,.hd-pad.hit{background:#14171a;color:#eef1f0}
+.hd-pad b{font-weight:300;font-size:20px;letter-spacing:-.03em;line-height:1}
+.hd-pad small{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.6}
+.hd-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+@media (max-width:1180px){.humdesk{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.hd-rec{grid-column:1/-1}}
+@media (max-width:760px){.humdesk{grid-template-columns:minmax(0,1fr)}.hd-read b{font-size:34px}.hd-mode{width:100%}.hd-mode button{flex:1}}

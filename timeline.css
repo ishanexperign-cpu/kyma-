@@ -7,14 +7,14 @@
 .wstool .btn{padding:0 11px;height:30px;font-size:12px}
 .wstool input[type=range]{width:110px;accent-color:var(--accent)}
 .songlen{display:flex;align-items:center;gap:6px}
-.songlen input{width:72px;height:32px;background:var(--screen);border:0;border-radius:var(--r-sm);padding:0 8px;color:#f3eff5;font-family:var(--font-num);font-weight:400;font-size:17px;text-align:center}
+.songlen input{width:72px;height:32px;background:var(--screen);border:0;border-radius:var(--r-sm);padding:0 8px;color:#eef1f0;font-family:var(--font-num);font-weight:400;font-size:17px;text-align:center}
 .songlen small{color:var(--muted);font-size:10.5px;font-family:var(--font-mono)}
 .wsopts{display:flex;flex-wrap:wrap;gap:4px 14px;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--muted)}
 .wsopts .check{font-size:11.5px;margin:0}
 .wsbody{display:grid;grid-template-columns:240px minmax(0,1fr);position:relative}
 .heads{border-right:1px solid var(--line);background:var(--surface);min-width:0}
 .rhead{display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--screen-line);background:var(--screen)}
-.rhead .lbl{color:#9b92a1}
+.rhead .lbl{color:#8b9397}
 .thead{position:relative;border-bottom:1px solid var(--line);padding:6px 8px 6px 12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;min-width:0;overflow:hidden}
 .thead.focus{background:var(--surface-2)}
 .thead .tstrip{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tc)}
@@ -60,10 +60,10 @@
   .brcat{flex:none;gap:6px}
 }
 /* lanes above the tracks (the Video picture lane) */
-.thead.toplane{background:var(--screen);color:#f3eff5}
+.thead.toplane{background:var(--screen);color:#eef1f0}
 .thead.toplane .trow1{gap:6px}
-.vl-tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;background:var(--orange);color:#2a0e05;border-radius:4px;padding:1px 5px;flex:none}
+.vl-tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;background:var(--orange);color:#140802;border-radius:4px;padding:1px 5px;flex:none}
 .vl-name{font-size:12px;font-weight:600;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .thead.toplane .tstrip{background:var(--orange)}
-.thead.toplane .ms{border-color:#4c4352;color:#b6adbb}
+.thead.toplane .ms{border-color:#3a4146;color:#a9b0b3}
 .thead.toplane .tvol{accent-color:var(--orange)}

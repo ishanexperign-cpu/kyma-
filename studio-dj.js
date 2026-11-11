@@ -102,7 +102,7 @@ async function loadDeck(buf,name,bpm){
 function renderDeckB(){
   if(!$('dBName')) return;
   $('dBName').textContent=DB.name; $('dBBpm').textContent=DB.bpm?(DB.synced?`${DB.bpm} → ${(DB.bpm*dbRate()).toFixed(0)} BPM${Math.abs(DB.bpm*dbRate()-S.bpm)>1?' (×'+(S.bpm/(DB.bpm*dbRate())).toFixed(1)+')':''}`:`${(DB.bpm*dbRate()).toFixed(1)} BPM`):(DB.buf?'BPM unknown':'');
-  $('dBPlay').textContent=DB.playing?'Pause':'Play'; $('dBSync').setAttribute('aria-pressed',DB.synced); $('dBLoop').setAttribute('aria-pressed',DB.loop);
+  setLabel($('dBPlay'),DB.playing?'Pause':'Play'); { const ic=$('dBPlay').querySelector('.cta-ic'); if(ic) ic.innerHTML=DB.playing?ICONS.pause:ICONS.play; } $('dBSync').setAttribute('aria-pressed',DB.synced); $('dBLoop').setAttribute('aria-pressed',DB.loop);
   $('dBPitch').value=DB.pitch; $('dBPitch').disabled=DB.synced; const r=(dbRate()-1)*100; $('dBRate').textContent=(r>=0?'+':'')+r.toFixed(1)+'%';
   if(document.activeElement!==$('dBBpmIn')) $('dBBpmIn').value=DB.bpm||'';
   drawDeckB();
@@ -162,7 +162,13 @@ function djFrame(now){
   if(DB.playing||DB.loading) drawDeckB();
   document.querySelectorAll('.lpad').forEach(r=>r.classList.toggle('hit',now-(lastHit[r.dataset.id]||0)<120));
 }
+panelDefaults('dj',{dock:['play','restart','dbplay','dbcue','dbsync','xfade','djrec','m_space','m_out','meter'],head:[]});
 function initDJ(){
+  control({id:'dbplay',group:'DJ',kind:'toggle',label:()=>DB.playing?'Pause B':'Play B',icon:()=>DB.playing?'pause':'play',tip:'Play or pause deck B',run:()=>$('dBPlay').click(),pressed:()=>DB.playing});
+  control({id:'dbcue',group:'DJ',label:'Cue B',icon:'restart',run:()=>$('dBCue').click()});
+  control({id:'dbsync',group:'DJ',kind:'toggle',label:'Sync B',icon:'sync',tip:'Match deck A and start on its next bar',run:()=>$('dBSync').click(),pressed:()=>!!DB.synced});
+  control({id:'xfade',group:'DJ',kind:'slider',label:'A · B',tip:'Crossfader',min:0,max:100,step:1,get:()=>Math.round(PERF.xf*100),set:v=>{ const x=$('xfader'); x.value=v; x.oninput({target:x}); }});
+  control({id:'djrec',group:'DJ',kind:'toggle',label:()=>REC.on?'Stop take':'Record take',icon:'rec',hot:()=>REC.on,run:()=>toggleRec(),pressed:()=>REC.on});
   $('xfader').oninput=e=>{ PERF.xf=e.target.value/100; applyXf(); };
   $('dBLoad').onchange=e=>{ const v=e.target.value; e.target.value=''; if(!v) return; if(v.startsWith('take:')){ const t=REC.takes[+v.slice(5)]; if(t) loadDeck(t.buf,t.name,t.bpm); } else loadDeckDemo(v); };
   $('dBFile').onclick=()=>$('dBFileIn').click();

@@ -5,10 +5,10 @@
    graph, so moving a fader or switching scenes never restarts the sound.
    The same engine plays live in the Atmosphere studio, renders exports, and plays atmosphere
    tracks on the timeline (VOICES.atmos). fxkit holds the sound-design one-shots. */
-const ATMOS_LAYERS=['drone','shimmer','grains','wind','rain','birds','insects','city','water','pulse','sub'];
-const ATMOS_LABEL={drone:'Drone',shimmer:'Shimmer',grains:'Grains',wind:'Wind',rain:'Rain',birds:'Birds',insects:'Insects',city:'City',water:'Water',pulse:'Pulse',sub:'Sub'};
-const ATMOS_GAIN={drone:.09,shimmer:.035,grains:.55,wind:.5,rain:.4,birds:.12,insects:.05,city:.6,water:.55,pulse:.16,sub:.22};
-const ATMOS_TONAL=new Set(['drone','shimmer','grains','pulse','sub']);
+const ATMOS_LAYERS=['drone','shimmer','chord','grains','wind','rain','birds','insects','city','water','pulse','sub'];
+const ATMOS_LABEL={drone:'Drone',shimmer:'Shimmer',chord:'Chords',grains:'Grains',wind:'Wind',rain:'Rain',birds:'Birds',insects:'Insects',city:'City',water:'Water',pulse:'Pulse',sub:'Sub'};
+const ATMOS_GAIN={drone:.09,shimmer:.035,chord:.06,grains:.55,wind:.5,rain:.4,birds:.12,insects:.05,city:.6,water:.55,pulse:.16,sub:.22};
+const ATMOS_TONAL=new Set(['drone','shimmer','chord','grains','pulse','sub']);
 function atmosRand(seed){ let s=(seed>>>0)||1; return ()=>{ s^=s<<13; s^=s>>>17; s^=s<<5; return ((s>>>0)%100000)/100000; }; }
 
 function AtmosEngine(ctx,dest,R,o={}){
@@ -17,12 +17,22 @@ function AtmosEngine(ctx,dest,R,o={}){
   const mkO=()=>raw?new OscillatorNode(ctx):ctx.createOscillator();
   const mkB=()=>raw?new AudioBufferSourceNode(ctx):ctx.createBufferSource();
   const E={ctx,p:{motion:.4,bright:.6},midi:o.midi||50,g:{},cont:[],lfos:[],tonal:[],next:{},running:false,ended:false,timer:null};
-  E.out=ctx.createGain(); E.tone=bq(ctx,'lowpass',8000,.5); E.tone.connect(E.out); E.out.connect(dest);
-  ATMOS_LAYERS.forEach(k=>{ const g=ctx.createGain(); g.gain.value=0; g.connect(E.tone); E.g[k]=g; });
+  /* per-layer channel strip: level -> tone (low-pass) -> pan, then the scene's brightness, low cut and output */
+  E.out=ctx.createGain(); E.tone=bq(ctx,'lowpass',8000,.5); E.lowcut=bq(ctx,'highpass',20,.6); E.tone.connect(E.lowcut).connect(E.out); E.out.connect(dest);
+  E.lp={}; E.pn={};
+  ATMOS_LAYERS.forEach(k=>{ const g=ctx.createGain(), lp=bq(ctx,'lowpass',18000,.5), pn=ctx.createStereoPanner(); g.gain.value=0; g.connect(lp).connect(pn).connect(E.tone); E.g[k]=g; E.lp[k]=lp; E.pn[k]=pn; });
   const f0=()=>mtof(E.midi), mot=()=>.15+(E.p.motion??.4)*1.6, brightHz=()=>200+Math.pow(E.p.bright??.6,1.6)*15800, lv=k=>E.p[k]||0;
   const cont=n=>{ E.cont.push(n); return n; };
   const lfo=(rate,depth,param)=>{ const ov=cont(mkO()), g=ctx.createGain(), r=rate*(.85+rnd()*.3); g.gain.value=depth; ov.frequency.value=r*mot(); ov.connect(g).connect(param); E.lfos.push({o:ov,r}); return ov; };
-  const tonal=(ov,ratio,min)=>{ ov.frequency.value=Math.max(min||0,f0()*ratio); E.tonal.push({o:ov,ratio,min:min||0}); return ov; };
+  /* harmony: with a chord chosen (p.ch_deg >= 0) every tonal voice moves to the nearest chord tone in its own
+     register, so changes voice-lead instead of jumping. The chord pad always plays a chord (the tonic until one is chosen). */
+  const chordOn=()=>(E.p.ch_deg??-1)>=0, prog=()=>{ const l=[]; for(let i=0;i<8;i++){ const d=E.p['pg'+i]; if(d!=null&&d>=0) l.push(Math.round(d)); } return l; };
+  const harmOn=()=>(E.p.cyc||0)>0&&prog().length>0;
+  const tones=()=>E.chT||(E.chT=chordSemis(chordOn()?Math.round(E.p.ch_deg):0,Math.round(E.p.ch_col||0)));
+  const near=(semi,home)=>{ let m=E.midi+semi; m+=12*Math.round((home-m)/12); return m; };
+  const hz=t=>{ if(t.ct==null||!(t.always||chordOn())) return Math.max(t.min,f0()*t.ratio*t.det); const T=tones(); return Math.max(t.min,mtof(near(T[t.ct<T.length?t.ct:0],E.midi+12*Math.log2(t.ratio)))*t.det); };
+  const rootHz=()=>chordOn()?mtof(near(tones()[0],E.midi)):f0();
+  const tonal=(ov,ratio,min,ct,det=1,always=false)=>{ const t={o:ov,ratio,min:min||0,ct,det,always}; E.tonal.push(t); ov.frequency.value=hz(t); return ov; };
   const loopNoise=(buf)=>{ const s=cont(mkB()); s.buffer=buf; s.loop=true; s._off=rnd()*(buf.duration-.5); return s; };
   /* finished event voices are unhooked straight away, so a scene can run for hours without piling up nodes */
   const done=(src,...nodes)=>{ src.onended=()=>{ nodes.forEach(n=>{ try{ n.disconnect(); }catch(e){} }); }; };
@@ -31,9 +41,13 @@ function AtmosEngine(ctx,dest,R,o={}){
   /* ---------- continuous beds ---------- */
   // drone: detuned saws and a triangle a fifth up through a breathing low-pass
   E.droneLP=bq(ctx,'lowpass',500,.8); E.droneLP.connect(E.g.drone); lfo(.05,300,E.droneLP.frequency);
-  [[.5,-7,'sawtooth'],[.5,7,'sawtooth'],[.75,3,'triangle'],[1,0,'sine']].forEach(([r,dt,w])=>{ const ov=cont(mkO()); ov.type=w; ov.detune.value=dt; tonal(ov,r); ov.connect(E.droneLP); });
+  [[.5,-7,'sawtooth',0],[.5,7,'sawtooth',0],[.75,3,'triangle',2],[1,0,'sine',0]].forEach(([r,dt,w,ct])=>{ const ov=cont(mkO()); ov.type=w; ov.detune.value=dt; tonal(ov,r,0,ct); ov.connect(E.droneLP); });
   // shimmer: high partials with slow tremolo
-  [2,3,4,6].forEach((h,i)=>{ const ov=cont(mkO()), a=ctx.createGain(); a.gain.value=.25/(i+1); tonal(ov,h*(1+(rnd()-.5)*.003)); lfo(.08*(i+1),.22/(i+1),a.gain); ov.connect(a).connect(E.g.shimmer); });
+  [[2,0],[3,2],[4,1],[6,3]].forEach(([h,ct],i)=>{ const ov=cont(mkO()), a=ctx.createGain(); a.gain.value=.25/(i+1); tonal(ov,h,0,ct,1+(rnd()-.5)*.003); lfo(.08*(i+1),.22/(i+1),a.gain); ov.connect(a).connect(E.g.shimmer); });
+  // chord pad: four soft voices on the chord tones, slowly breathing through a low-pass
+  E.chordLP=bq(ctx,'lowpass',1400,.6); E.chordLP.connect(E.g.chord); lfo(.06,450,E.chordLP.frequency);
+  [[0,1,-.35],[1,1.25,.3],[2,1.5,-.1],[3,2,.4]].forEach(([ct,r,pv])=>{ const a=ctx.createGain(); a.gain.value=.5; lfo(.05+ct*.013,.16,a.gain); a.connect(pan(pv)).connect(E.chordLP);
+    [['triangle',-6,.6],['sawtooth',5,.2]].forEach(([w,dt,lvl])=>{ const ov=cont(mkO()), g2=ctx.createGain(); ov.type=w; ov.detune.value=dt; g2.gain.value=lvl; tonal(ov,r,0,ct,1,true); ov.connect(g2).connect(a); }); });
   // wind: pink noise through a wandering band, with gusts
   { const n=loopNoise(R.pink), bp=bq(ctx,'bandpass',500,.7), gust=ctx.createGain(); gust.gain.value=.6; n.connect(bp).connect(gust).connect(E.g.wind); lfo(.07,380,bp.frequency); lfo(.11,.35,gust.gain); lfo(.031,.2,gust.gain); }
   // rain bed: bright hiss under the drops
@@ -45,18 +59,19 @@ function AtmosEngine(ctx,dest,R,o={}){
   // city: low rumble with slow swells
   { const n=loopNoise(R.pink), lp=bq(ctx,'lowpass',320,.6), sw=ctx.createGain(); sw.gain.value=.5; n.connect(lp).connect(sw).connect(E.g.city); lfo(.045,.3,sw.gain); }
   // sub: a low sine that swells
-  { const ov=cont(mkO()), a=ctx.createGain(); a.gain.value=.7; tonal(ov,.25,28); lfo(.04,.3,a.gain); ov.connect(a).connect(E.g.sub); }
+  { const ov=cont(mkO()), a=ctx.createGain(); a.gain.value=.7; tonal(ov,.25,28,0); lfo(.04,.3,a.gain); ov.connect(a).connect(E.g.sub); }
   // shared banks: drops and grains feed a few fixed filters and panners instead of building their own
   E.rainBank=[0,1,2,3,4,5].map(i=>{ const b=bq(ctx,'bandpass',1500+i*900+rnd()*400,4+rnd()*4), pn=pan((i/5-.5)*1.8); b.connect(pn).connect(E.g.rain); return b; });
   E.grainBank=[0,1,2,3,4].map(i=>{ const pn=pan((i/4-.5)*1.6); pn.connect(E.g.grains); return pn; });
   // pulse: tempo-locked soft eighths through a band tuned to the key
-  E.pulseBP=bq(ctx,'bandpass',f0()*4,6); E.pulseBP.connect(E.g.pulse);
+  E.pulseBP=bq(ctx,'bandpass',rootHz()*4,6); E.pulseBP.connect(E.g.pulse);
 
   /* ---------- event layers, scheduled ahead ---------- */
   const EV={
     grains(t){ const B=SAMPLE.buffer, dens=4+lv('grains')*10; if(!B) return t+.25;
-      const base=SAMPLE.follow?f0()/mtof(SAMPLE.baseMidi||60):Math.pow(2,(E.midi-(SAMPLE.baseMidi||60))/12), s=mkB(), e=ctx.createGain(), L=.08+rnd()*.25*(1+(1-mot()/1.75)), pos=rnd()*Math.max(0,B.duration-L), pn=E.grainBank[Math.floor(rnd()*5)];
-      s.buffer=B; s.playbackRate.value=base*[1,1,2,.5,1.5][Math.floor(rnd()*5)]*(1+(rnd()-.5)*.01); e.gain.setValueAtTime(0,t); e.gain.linearRampToValueAtTime(.35,t+L/2); e.gain.linearRampToValueAtTime(0,t+L);
+      const T=tones(), iv=i=>Math.pow(2,((T[i]??T[0])-T[0])/12), mult=chordOn()?[1,1,2,.5,iv(2),iv(1)]:[1,1,2,.5,1.5];
+      const base=SAMPLE.follow?rootHz()/mtof(SAMPLE.baseMidi||60):Math.pow(2,(E.midi-(SAMPLE.baseMidi||60))/12)*(chordOn()?rootHz()/f0():1), s=mkB(), e=ctx.createGain(), L=.08+rnd()*.25*(1+(1-mot()/1.75)), pos=rnd()*Math.max(0,B.duration-L), pn=E.grainBank[Math.floor(rnd()*5)];
+      s.buffer=B; s.playbackRate.value=base*mult[Math.floor(rnd()*mult.length)]*(1+(rnd()-.5)*.01); e.gain.setValueAtTime(0,t); e.gain.linearRampToValueAtTime(.35,t+L/2); e.gain.linearRampToValueAtTime(0,t+L);
       s.connect(e).connect(pn); done(s,e); s.start(t,pos,L+.02); return t+1/dens*(.5+rnd()); },
     rain(t){ const s=mkB(), e=ctx.createGain(), L=.03+rnd()*.03;
       s.buffer=R.white; e.gain.setValueAtTime(.5*rnd()+.02,t); e.gain.exponentialRampToValueAtTime(.001,t+L); s.connect(e).connect(E.rainBank[Math.floor(rnd()*6)]); done(s,e); s.start(t,rnd()*3,L+.01);
@@ -76,7 +91,10 @@ function AtmosEngine(ctx,dest,R,o={}){
       lp.frequency.setValueAtTime(400,t); lp.frequency.linearRampToValueAtTime(1800+rnd()*1500,t+L*.45); lp.frequency.linearRampToValueAtTime(350,t+L);
       e.gain.setValueAtTime(0,t); e.gain.linearRampToValueAtTime(.45,t+L*.45); e.gain.linearRampToValueAtTime(0,t+L); n.connect(lp).connect(e).connect(pn).connect(E.g.water); done(n,lp,e,pn); n.start(t,rnd()*3); n.stop(t+L+.05);
       return t+per*(.75+rnd()*.5); },
-    pulse(t){ const step=60/Math.max(40,bpm())/2, k=E.pk=(E.pk||0)+1, ov=mkO(), e=ctx.createGain(); ov.type='triangle'; ov.frequency.value=f0()*(k%4===2?3:2);
+    /* the progression: step to its next chord every p.cyc seconds */
+    harm(t){ const l=prog(); E.pi=((E.pi??-1)+1)%l.length; E.p.ch_deg=l[E.pi]; E.chT=null; E.applyChord(t,Math.min(2.5,E.p.cyc*.25)); if(o.onHarm) o.onHarm(E.pi,l[E.pi],t); return t+Math.max(1,E.p.cyc); },
+    pulse(t){ const step=60/Math.max(40,bpm())/2, k=E.pk=(E.pk||0)+1, ov=mkO(), e=ctx.createGain(); ov.type='triangle';
+      if(chordOn()){ const T=tones(), i=[0,1,2,1,0,2,(T.length>3?3:1),2][k%8]; ov.frequency.value=mtof(near(T[i<T.length?i:0],E.midi+12)); } else ov.frequency.value=f0()*(k%4===2?3:2);
       e.gain.setValueAtTime(0,t); e.gain.linearRampToValueAtTime(k%2?.25:.5,t+.005); e.gain.exponentialRampToValueAtTime(.001,t+step*.9); ov.connect(e).connect(E.pulseBP); done(ov,e); ov.start(t); ov.stop(t+step);
       return t+step; },
   };
@@ -84,19 +102,24 @@ function AtmosEngine(ctx,dest,R,o={}){
 
   /* ---------- controls ---------- */
   E.set=(p,ramp=.25)=>{
-    Object.assign(E.p,p); const now=ctx.currentTime, tc=Math.max(.005,ramp/3);
-    ATMOS_LAYERS.forEach(k=>{ const v=lv(k)*ATMOS_GAIN[k]; if(ramp<=0) E.g[k].gain.setValueAtTime(v,now); else E.g[k].gain.setTargetAtTime(v,now,tc); });
+    const cycling=harmOn(), was=[E.p.ch_deg,E.p.ch_col]; Object.assign(E.p,p); const now=ctx.currentTime, tc=Math.max(.005,ramp/3);
+    if(cycling&&harmOn()){ E.p.ch_deg=was[0]; } /* while the progression runs it owns the chord */
+    if((E.p.ch_deg??-1)!==(was[0]??-1)||(E.p.ch_col||0)!==(was[1]||0)){ E.chT=null; E.applyChord(now,E.p.ch_glide??.6); }
     const set=(prm,v)=>ramp<=0?prm.setValueAtTime(v,now):prm.setTargetAtTime(v,now,tc);
-    set(E.tone.frequency,brightHz()); set(E.droneLP.frequency,500+(E.p.bright??.6)*1600);
+    const anySolo=ATMOS_LAYERS.some(k=>E.p['solo_'+k]>.5), width=E.p.width??1;
+    ATMOS_LAYERS.forEach(k=>{ const audible=(anySolo?E.p['solo_'+k]>.5:true)&&!(E.p['mute_'+k]>.5), v=audible?lv(k)*ATMOS_GAIN[k]:0;
+      set(E.g[k].gain,v); set(E.pn[k].pan,clamp((E.p['pan_'+k]||0)*width,-1,1)); set(E.lp[k].frequency,atmosToneHz(E.p['tone_'+k]??1)); });
+    set(E.lowcut.frequency,20+Math.pow(E.p.lowcut||0,2)*780);
+    set(E.tone.frequency,brightHz()); set(E.droneLP.frequency,500+(E.p.bright??.6)*1600); set(E.chordLP.frequency,600+(E.p.bright??.6)*2600);
     E.lfos.forEach(l=>set(l.o.frequency,l.r*mot()));
   };
-  E.setKey=(midi,glide=1.2)=>{ E.midi=midi; const now=ctx.currentTime;
-    E.tonal.forEach(t=>t.o.frequency.setTargetAtTime(Math.max(t.min,f0()*t.ratio),now,glide/3)); E.pulseBP.frequency.setTargetAtTime(f0()*4,now,glide/3); };
+  E.applyChord=(at,glide=.6)=>{ const tc=Math.max(.01,glide/3); E.tonal.forEach(t=>t.o.frequency.setTargetAtTime(hz(t),at,tc)); E.pulseBP.frequency.setTargetAtTime(rootHz()*4,at,tc); };
+  E.setKey=(midi,glide=1.2)=>{ E.midi=midi; E.chT=null; E.applyChord(ctx.currentTime,glide); };
   E.start=(t)=>{ E.t0=t; E.cont.forEach(n=>{ if(n instanceof AudioBufferSourceNode) n.start(t,n._off||0); else n.start(t); });
-    EVK.forEach(k=>E.next[k]=t+rnd()*(k==='city'?3:k==='water'?2:1.2)); E.running=true; };
+    EVK.forEach(k=>E.next[k]=k==='harm'?t:t+rnd()*(k==='city'?3:k==='water'?2:1.2)); E.running=true; };
   E.schedule=(until)=>{ if(!E.running) return;
     for(const k of EVK){ let t=E.next[k]; let guard=0; const lim=200+Math.ceil(Math.max(0,until-t)*80);
-      while(t<until&&guard++<lim){ const on=lv(k)>.01; const nt=on?EV[k](t):t+(k==='pulse'?60/Math.max(40,bpm())/2:.5); t=Math.max(nt,t+.004); }
+      while(t<until&&guard++<lim){ const on=k==='harm'?harmOn():lv(k)>.01; const nt=on?EV[k](t):t+(k==='pulse'?60/Math.max(40,bpm())/2:.5); t=Math.max(nt,t+.004); }
       E.next[k]=t; } };
   /* live: keep scheduling ~0.8 s ahead until stopped */
   E.live=()=>{ clearInterval(E.timer); E.schedule(ctx.currentTime+.8); E.timer=setInterval(()=>E.schedule(ctx.currentTime+.8),200); };
@@ -108,6 +131,8 @@ function AtmosEngine(ctx,dest,R,o={}){
   return E;
 }
 
+/* a layer's tone control: 0 is muffled (300 Hz), 1 is fully open */
+function atmosToneHz(v){ return 300*Math.pow(60,clamp(v,0,1)); }
 /* let an offline render call back once a second so long scenes can be scheduled as it goes */
 function offlineTicks(ctx,len){ ctx.__tick=[]; for(let k=1;k<len-.05;k++){ ctx.suspend(k).then(()=>{ ctx.__tick.forEach(f=>f(k)); ctx.resume(); }); } }
 /* a whole scene as one timeline note; tonal layers follow the note's pitch */
@@ -162,7 +187,12 @@ VOICES.fxkit=function(ctx,out,p,t,vel,dur,piece,R){
     case 14: { const s=noise(R.white,t,.6), hp=bq(ctx,'highpass',3000,.5), e=ctx.createGain(); e.gain.setValueAtTime(.001,t); e.gain.exponentialRampToValueAtTime(.6,t+.08); e.gain.exponentialRampToValueAtTime(.001,t+.5); s.connect(hp).connect(e).connect(tone); break; } // Air burst
   }
 };
-ESCHEMA.atmos=[...ATMOS_LAYERS.map(k=>P(k,ATMOS_LABEL[k],0,1,0,{fmt:fmtPct})),P('motion','Motion',0,1,.4,{fmt:fmtPct}),P('bright','Brightness',0,1,.6,{fmt:fmtPct}),P('fadeIn','Fade in',0,12,3,{fmt:fmtS}),P('fadeOut','Fade out',0,12,3,{fmt:fmtS})];
+ESCHEMA.atmos=[...ATMOS_LAYERS.map(k=>P(k,ATMOS_LABEL[k],0,1,0,{fmt:fmtPct})),P('motion','Motion',0,1,.4,{fmt:fmtPct}),P('bright','Brightness',0,1,.6,{fmt:fmtPct}),
+  P('width','Width',0,1.5,1,{fmt:fmtPct}),P('lowcut','Low cut',0,1,0,{fmt:v=>Math.round(20+v*v*780)+' Hz'}),P('fadeIn','Fade in',0,12,3,{fmt:fmtS}),P('fadeOut','Fade out',0,12,3,{fmt:fmtS}),
+  /* the mixer's per-layer settings travel with the track but stay off its knob panel */
+  ...ATMOS_LAYERS.flatMap(k=>[P('pan_'+k,'Pan',-1,1,0,{hidden:true}),P('tone_'+k,'Tone',0,1,1,{hidden:true}),P('mute_'+k,'Mute',0,1,0,{hidden:true}),P('solo_'+k,'Solo',0,1,0,{hidden:true})]),
+  /* harmony from the chord strips: the chord (-1 follows the key), its colour, and a progression of up to eight chords stepped every cyc seconds */
+  P('ch_deg','Chord',-1,8,-1,{hidden:true}),P('ch_col','Colour',0,3,0,{hidden:true}),P('cyc','Cycle',0,64,0,{hidden:true}),...[0,1,2,3,4,5,6,7].map(i=>P('pg'+i,'Step',-1,8,-1,{hidden:true}))];
 ESCHEMA.fxkit=[P('level','Level',0,1.5,1,{fmt:fmtPct}),P('tone','Tone',0,1,.7,{fmt:fmtPct}),P('size','Size',0,1,.5,{fmt:fmtPct})];
 const ATMOS_SCENES={
   'Forest dawn':{birds:.75,wind:.35,insects:.15,drone:.15,shimmer:.2,motion:.35,bright:.8},
@@ -177,6 +207,20 @@ const ATMOS_SCENES={
   'Atmospheric formation':{drone:.55,shimmer:.45,wind:.2,sub:.35,grains:.25,motion:.4,bright:.55},
   'Subtle city movement':{city:.45,pulse:.45,drone:.35,shimmer:.2,sub:.25,motion:.55,bright:.6},
   'Surfacing':{water:.35,drone:.5,shimmer:.5,sub:.3,motion:.35,bright:.5},
+  'Monsoon night':{rain:.9,wind:.3,insects:.25,drone:.2,sub:.25,motion:.45,bright:.45,pan_rain:-.2,pan_insects:.5},
+  'Rooftop dusk':{city:.35,wind:.25,drone:.3,shimmer:.3,pulse:.15,motion:.35,bright:.6,tone_city:.55},
+  'Snowfield':{wind:.45,shimmer:.4,drone:.3,sub:.1,motion:.2,bright:.75,tone_wind:.7,width:1.3},
+  'Temple courtyard':{drone:.45,grains:.4,birds:.25,wind:.15,shimmer:.25,motion:.25,bright:.55,pan_birds:.4},
+  'Late-night study':{rain:.35,drone:.25,pulse:.2,sub:.15,city:.1,motion:.3,bright:.4,tone_rain:.6,lowcut:.25},
+  'Tide pools':{water:.55,birds:.2,wind:.2,shimmer:.2,motion:.4,bright:.65,pan_water:-.3},
+  'Neon drive':{pulse:.55,city:.3,sub:.4,drone:.35,motion:.6,bright:.5,width:1.2},
+  'Breathing room':{drone:.35,sub:.2,shimmer:.15,motion:.12,bright:.35,lowcut:.15},
+};
+/* how the studio groups the scenes */
+const ATMOS_GROUPS={
+  'Nature':['Forest dawn','Rain on glass','Ocean shore','Summer night','Desert wind','Monsoon night','Snowfield','Tide pools'],
+  'City':['Night city','Subtle city movement','Rooftop dusk','Late-night study','Neon drive'],
+  'Space and spirit':['Deep space','Underwater','Cathedral','Atmospheric formation','Surfacing','Temple courtyard','Breathing room'],
 };
 Object.entries(ATMOS_SCENES).forEach(([n,p])=>addInst(n,'Atmospheres','atmos',{fadeIn:3,fadeOut:3,...p},3,['atmos']));
 addInst('Transition FX','Textures','fxkit',{level:1,tone:.7,size:.5},0,['fx']);

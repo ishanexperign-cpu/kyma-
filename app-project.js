@@ -6,6 +6,7 @@ const Project={
   defaultSong(){
     const s=newSong(); s.name=Project.freshName();
     if(STUDIO==='dj'){ const d=sanitizeSong(demoSong('Ambient Ghosts')); d.name=s.name; return d; }
+    if(STUDIO==='hum'){ s.len=16*16; const prev=S; S=s; const kit=INSTS.find(i=>i.kind==='drum'), cel=INSTS.find(i=>i.name==='Cello'); if(kit){ const t=newTrack(kit.id,{name:'Beatbox · '+kit.name}); t.role='drums'; s.tracks.push(t); } if(cel){ const t=newTrack(cel.id,{name:'Hum · Cello'}); t.role='melody'; s.tracks.push(t); } S=prev; return s; }
     if(STUDIO==='compose'||STUDIO==='video'){ s.len=16*16; const prev=S; S=s; ['Drums','Bass','Keys'].map(c=>INSTS.find(i=>i.cat===c)).filter(Boolean).forEach(I=>s.tracks.push(newTrack(I.id))); S=prev; }
     return s;
   },
@@ -40,6 +41,9 @@ const Project={
     try{ const p=Store.fromFile(await file.text()); Project.saveNow(); Store.put(p); Store.sync(p); Store.setCurrent(p.id); location.href=STUDIO+'.html?p='+encodeURIComponent(p.id); }
     catch(e){ toast('That file isn’t a Kyma project.'); }
   },
+  /* a fresh project in this studio; the one open now is saved first */
+  newFile(){ Project.saveNow(); const p={app:'kyma',v:1,id:Store.newId(),created:Date.now(),updated:Date.now(),studio:STUDIO,name:Project.freshName(),song:null};
+    Store.put(p); Store.setCurrent(p.id); try{ if(playing) stopPlay(); }catch(e){} location.href=STUDIO+'.html?p='+encodeURIComponent(p.id); },
   home(){ if(Project.status==='editing'||Project.cur&&Project.cur.fresh&&S.tracks.some(t=>t.clips.length)) Project.saveNow(); else if(Project.timer) Project.saveNow();
     try{ if(playing) stopPlay(); }catch(e){}
     location.href='index.html'; },

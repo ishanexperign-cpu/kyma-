@@ -210,8 +210,17 @@ function renderVideo(){
 function drawVideoMarks(g,X,k,H){ if(!V.dur||!V.cuts.length) return; const sd=stepDur();
   g.save(); V.cuts.forEach(c=>{ const x=X(c.t/sd); g.fillStyle='#ec6a43'; g.globalAlpha=.25+c.s*.4; g.fillRect(Math.round(x),RULER_H,1,H-RULER_H-ADD_H); g.globalAlpha=1; g.beginPath(); g.moveTo(x-4,RULER_H); g.lineTo(x+4,RULER_H); g.lineTo(x,RULER_H+6); g.fill(); });
   const xe=X(V.dur/sd); g.fillStyle='#f3eff5'; g.globalAlpha=.6; g.fillRect(Math.round(xe),0,1,H-ADD_H); g.globalAlpha=1; g.font='600 9.5px '+fontMono(); g.fillText('VIDEO END',xe+4,RULER_H-3); g.restore(); }
+panelDefaults('video',{dock:['play','restart','loop','vdscore','vdfx','hum','split','follow','m_space','mac_punch','m_out','meter'],head:['undo','redo']});
 function initVideo(){
   if(!$('vdVideo')) return;
+  control({id:'vdpick',group:'Video',label:'Choose video',icon:'film',run:()=>$('vdFile').click()});
+  control({id:'vdscore',group:'Video',label:'Score to cuts',icon:'magic',tip:'Write music that turns with the cuts',run:()=>$('vdScore').click(),disabled:()=>$('vdScore').disabled});
+  control({id:'vdfx',group:'Video',label:'Sound the cuts',icon:'fx',tip:'Place transition sounds on every cut',run:()=>$('vdFx').click(),disabled:()=>$('vdFx').disabled});
+  control({id:'vdsuggest',group:'Video',label:'Suggest mood',icon:'shuffle',tip:'Pick a mood and genre from the picture',run:()=>$('vdSuggest').click(),disabled:()=>$('vdSuggest').disabled});
+  control({id:'vdexpa',group:'Video',label:'Export audio',icon:'wave',run:()=>$('vdExpA').click(),disabled:()=>$('vdExpA').disabled});
+  control({id:'vdexpv',group:'Video',label:'Export video',icon:'film',run:()=>$('vdExpV').click(),disabled:()=>$('vdExpV').disabled});
+  control({id:'vdmus',group:'Video',kind:'slider',label:'Music level',min:0,max:150,step:1,get:()=>+$('vdMus').value,set:v=>{ const x=$('vdMus'); x.value=v; x.dispatchEvent(new Event('input')); },commit:()=>$('vdMus').dispatchEvent(new Event('change'))});
+  control({id:'vdvol',group:'Video',kind:'slider',label:'Video sound',min:0,max:150,step:1,get:()=>+$('vdVol').value,set:v=>{ const x=$('vdVol'); x.value=v; x.dispatchEvent(new Event('input')); },commit:()=>$('vdVol').dispatchEvent(new Event('change'))});
   const pick=()=>$('vdFile').click(); $('vdPick').onclick=pick; $('vdPick2').onclick=pick;
   $('vdFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) vdLoad(f).catch(()=>{}); };
   const drop=$('vdDrop'); ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.add('dropping'); })); ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,()=>drop.classList.remove('dropping')));

@@ -24,6 +24,65 @@ function flatten(c){
   else for(const n of c.notes) push(n,n.t);
   return out;
 }
+/* =========================================================
+   PERFORMANCE MODEL
+   How a player would place and weight each note, worked out once per
+   index build and applied identically in playback and export.
+   Each event gets: pT (seconds early/late), pS (strum offset, seconds),
+   pV (relative velocity change). scheduleAt scales them by Song.human.
+   ========================================================= */
+const pHash=x=>{ const v=Math.sin(x*12.9898)*43758.5453; return v-Math.floor(v); };
+// smooth noise: a slow wander, so neighbouring notes drift together instead of jittering apart
+const pDrift=(x,seed)=>{ const i=Math.floor(x), f=x-i, u=f*f*(3-2*f); return (pHash(i*1.37+seed)*(1-u)+pHash((i+1)*1.37+seed)*u)*2-1; };
+const pMetric=at=>{ const p=((at%16)+16)%16; if(Math.abs(p-Math.round(p))>.08) return .58; const q=Math.round(p)%16; return q===0?1:q===8?.9:(q===4||q===12)?.84:q%2===0?.72:.6; };
+function perfRole(tr){
+  if(tr.kind==='drum') return 'drums';
+  if(typeof trackRole==='function'){ try{ return trackRole(tr); }catch(e){} }
+  const I=INST[tr.inst]; return I&&I.engine==='bass'?'bass':'melody';
+}
+const PERF_FEEL={ // late = ms behind the beat, drift/jit = ms of wander, acc = metric accent depth, arc = phrase swell
+  drums:{late:0,drift:1.6,jit:1.2,acc:.2,arc:.02}, bass:{late:5,drift:2.5,jit:1.6,acc:.2,arc:.03},
+  chords:{late:1,drift:3,jit:1.5,acc:.22,arc:.05}, pad:{late:0,drift:2,jit:1,acc:.08,arc:.06},
+  arp:{late:0,drift:2.5,jit:1.5,acc:.3,arc:.05}, melody:{late:7,drift:5,jit:2.2,acc:.24,arc:.07},
+  counter:{late:9,drift:5,jit:2.2,acc:.2,arc:.06}, texture:{late:0,drift:3,jit:2,acc:.05,arc:.04} };
+function perform(tr,em){
+  const I=INST[tr.inst]; if(I&&I.engine==='atmos') return;
+  const role=perfRole(tr), F=PERF_FEEL[role]||PERF_FEEL.melody, seed=Math.max(0,S.tracks.indexOf(tr))*3.17+11;
+  const steps=[...em.keys()].sort((a,b)=>a-b); let prevEnd=-99, sum=0, cnt=0;
+  if(role!=='drums') for(const k of steps) for(const e of em.get(k)){ sum+=e.n; cnt++; }
+  const mean=cnt?sum/cnt:0;
+  for(const k of steps){
+    const evs=em.get(k);
+    // notes struck together form one gesture
+    const groups=new Map(); for(const e of evs){ const g=Math.round(e.at*8); if(!groups.has(g)) groups.set(g,[]); groups.get(g).push(e); }
+    for(const [,grp] of groups){
+      const at=grp[0].at, m=pMetric(at), ph=(at%64)/64, bar=Math.floor(at/16);
+      const drift=pDrift(at/6,seed)*F.drift, arc=(Math.sin(Math.PI*Math.min(1,ph*1.18))-.55)*F.arc;
+      if(role==='drums'){
+        for(const e of grp){ const core=e.n<2, hat=e.n>=4&&e.n<=6;
+          e.pT=((core?drift*.35:drift)+(pHash(e.at*7.13+e.n*.917)-.5)*2*F.jit*(core?.5:1)+(e.n===1||e.n===2?3.5:0)+(hat?pDrift(at/3,seed+5)*1.5:0))/1000;
+          e.pS=0;
+          // kick and snare keep their written weight; hats and percussion breathe with the bar
+          e.pV=(core?(m-.8)*.08:(m-.74)*F.acc*1.6+pDrift(at/5,seed+9)*.06)+(pHash(e.at*3.71+e.n*1.37+.5)-.5)*.07; }
+        continue;
+      }
+      const after=at-prevEnd>=2;                 // first note after a breath speaks a little clearer
+      let end=at; grp.sort((a,b)=>a.n-b.n);
+      const chord=grp.length>=3, up=chord&&Math.round(at)%4!==0&&Math.abs(at-Math.round(at))<.05&&Math.round(at)%2===1; // off-beat stabs strum upward
+      const gap=chord?(role==='pad'?4:9)/1000:grp.length===2?4/1000:0;
+      grp.forEach((e,i)=>{
+        const legato=e.from!=null, idx=up?grp.length-1-i:i;
+        e.pT=legato?0:(F.late+drift+(pHash(e.at*7.13+e.n*.917)-.5)*2*F.jit)/1000;
+        e.pS=gap*idx-(chord?gap*(grp.length-1)*.35:0);  // the strum straddles the beat rather than trailing it
+        let v=(m-.78)*F.acc+arc+(pHash(bar*5.3+seed)-.5)*.05+(pHash(e.at*3.71+e.n*1.37+.5)-.5)*.05;
+        if(chord){ v+= i===grp.length-1?.04:i===0?.01:-.06; }             // top voice sings, inner voices sit back
+        else if(role==='melody'||role==='counter'||role==='arp') v+=clamp((e.n-mean)*.012,-.07,.09)+(after?.05:0); // higher notes ring out
+        e.pV=v; end=Math.max(end,e.at+e.d);
+      });
+      prevEnd=Math.max(prevEnd,end);
+    }
+  }
+}
 let IDX=null;
 function markDirty(){ IDX=null; }
 function ensureIndex(){
@@ -38,6 +97,7 @@ function ensureIndex(){
       for(const e of fl){ if(e.at>=S.len) continue; const k=Math.floor(e.at+1e-6); if(!em.has(k)) em.set(k,[]); em.get(k).push(e); }
       const pre=c.fin&&c.fin.type==='riser'?c.fin.len:0, bs=Math.max(0,Math.floor(c.start-pre)); if(!bm.has(bs)) bm.set(bs,[]); bm.get(bs).push(c);
     }
+    perform(tr,em);
     IDX.ev.set(tr.id,em); IDX.bus.set(tr.id,bm);
   }
   return IDX;
@@ -133,17 +193,18 @@ function clipBus(G,tr,c,pass,tS){
   let tail=B.g;
   const fi=c.fin||{type:'cut',len:0}, fo=c.fout||{type:'cut',len:0}, Li=Math.max(0,fi.len)*sd, Lo=Math.min(c.len*sd,Math.max(0,fo.len)*sd);
   const g=B.g.gain; g.setValueAtTime(1,Math.max(0,tS-Li-.01));
-  if(Li>0){
-    if(fi.type==='fade'){ g.setValueAtTime(0,tS); g.linearRampToValueAtTime(1,tS+Li); }
-    else if(fi.type==='filter'){ B.hp.frequency.setValueAtTime(2500,tS); B.hp.frequency.exponentialRampToValueAtTime(10,tS+Li); g.setValueAtTime(.35,tS); g.linearRampToValueAtTime(1,tS+Li); }
-    else if(fi.type==='swell'){ g.setValueAtTime(.0005,tS); g.exponentialRampToValueAtTime(1,tS+Li); B.hp.frequency.setValueAtTime(1200,tS); B.hp.frequency.exponentialRampToValueAtTime(10,tS+Li);
-      const rs=ctx.createGain(); B.lp.connect(rs).connect(G.revIn); rs.gain.setValueAtTime(1.2,tS); rs.gain.linearRampToValueAtTime(0,tS+Li); }
-    else if(fi.type==='riser'){ const t0=tS-Li, n=noiseSrc(ctx,G.R.white,Math.max(0,t0),Li+.05), bp=bq(ctx,'bandpass',300,3), rg=ctx.createGain();
-      bp.frequency.setValueAtTime(300,Math.max(0,t0)); bp.frequency.exponentialRampToValueAtTime(7000,tS); rg.gain.setValueAtTime(0,Math.max(0,t0)); rg.gain.linearRampToValueAtTime(.22,tS-.01); rg.gain.setValueAtTime(0,tS);
+  const tS0=Math.max(0,tS); /* a clip that began before time zero (seeking right after load) must not schedule in the past */
+  if(Li>0&&tS+Li>.002){
+    if(fi.type==='fade'){ g.setValueAtTime(0,tS0); g.linearRampToValueAtTime(1,tS0+Li); }
+    else if(fi.type==='filter'){ B.hp.frequency.setValueAtTime(2500,tS0); B.hp.frequency.exponentialRampToValueAtTime(10,tS0+Li); g.setValueAtTime(.35,tS0); g.linearRampToValueAtTime(1,tS0+Li); }
+    else if(fi.type==='swell'){ g.setValueAtTime(.0005,tS0); g.exponentialRampToValueAtTime(1,tS0+Li); B.hp.frequency.setValueAtTime(1200,tS0); B.hp.frequency.exponentialRampToValueAtTime(10,tS0+Li);
+      const rs=ctx.createGain(); B.lp.connect(rs).connect(G.revIn); rs.gain.setValueAtTime(1.2,tS0); rs.gain.linearRampToValueAtTime(0,tS0+Li); }
+    else if(fi.type==='riser'){ const t0=tS0-Li, n=noiseSrc(ctx,G.R.white,Math.max(0,t0),Li+.05), bp=bq(ctx,'bandpass',300,3), rg=ctx.createGain();
+      bp.frequency.setValueAtTime(300,Math.max(0,t0)); bp.frequency.exponentialRampToValueAtTime(7000,tS0); rg.gain.setValueAtTime(0,Math.max(0,t0)); rg.gain.linearRampToValueAtTime(.22,tS0-.01); rg.gain.setValueAtTime(0,tS0);
       n.connect(bp).connect(rg).connect(T.in); const rr2=gainN(ctx,.5); rg.connect(rr2).connect(G.revIn); }
   }
   if(Lo>0){
-    const t1=tE-Lo;
+    const t1=Math.max(0,tE-Lo);
     if(fo.type==='fade'){ g.setValueAtTime(1,t1); g.linearRampToValueAtTime(0,tE); }
     else if(fo.type==='filter'){ B.lp.frequency.setValueAtTime(20000,t1); B.lp.frequency.exponentialRampToValueAtTime(220,tE); B.lp.Q.setValueAtTime(.7,t1); B.lp.Q.linearRampToValueAtTime(5,tE); g.setValueAtTime(1,tE-.02); g.linearRampToValueAtTime(0,tE+.06); }
     else if(fo.type==='echo'){ const es=ctx.createGain(), d=ctx.createDelay(3), fb=gainN(ctx,.62), lp=bq(ctx,'lowpass',3000,.5); d.delayTime.value=Math.min(2.9,.75*60/S.bpm);
@@ -175,7 +236,7 @@ function withGlide(ctx,ratio,t,gl,call){
 const hsh=x=>{ const v=Math.sin(x*12.9898)*43758.5453; return v-Math.floor(v); };
 function scheduleAt(Gx,st,t,pass,only){
   const X=ensureIndex(), sd=stepDur(), anySolo=S.tracks.some(x=>x.solo), hits=[];
-  const base=t;
+  const base=t, hu=S.human??.35, kT=Math.min(2.5,hu/.4), kS=hu>0?Math.min(1.6,.6+hu):0, kV=Math.min(1.6,.55+hu*1.1);
   for(const tr of S.tracks){
     const live=only?only===tr.id:audibleT(tr,anySolo);
     if(HUM.exclude===tr.id && Gx===LIVE.G) continue;
@@ -184,7 +245,7 @@ function scheduleAt(Gx,st,t,pass,only){
     const I=INST[tr.inst]||INSTS[0], fn=VOICES[I.engine];
     for(const e of evs){
       const frac=e.at-st; let tt=base+frac*sd, vel=e.v; if(frac<1e-6&&st%2===1) tt+=S.swing*.5*sd;
-      const hu=S.human??.35; if(hu>0){ const h1=hsh(e.at*7.13+e.n*.917), h2=hsh(e.at*3.71+e.n*1.37+.5); tt+=(h1-.5)*.018*hu*(tr.kind==='drum'&&e.n<2?.35:1); vel=clamp(e.v*(1+(h2-.5)*.24*hu),.05,1); }
+      if(hu>0&&e.pV!==undefined){ const cap=sd*.3; tt+=clamp(e.pT*kT,-cap,cap)+clamp(e.pS*kS,-cap,cap*2); vel=clamp(e.v*(1+e.pV*kV),.05,1); }
       if(tr.kind==='drum'&&e.n===0&&S.master.pump>0&&audibleT(tr,anySolo)){ const g=Gx.duck.gain; g.cancelScheduledValues(tt); g.setTargetAtTime(1-S.master.pump*.75,tt,.004); g.setTargetAtTime(1,tt+.03,.05+sd*1.2); }
       if(!live) continue;
       const B=clipBus(Gx,tr,e.c,pass,base+(e.c.start-st)*sd);
@@ -270,7 +331,7 @@ function seekTo(step){
 function restartPlay(){ seekTo(loopRange().a); }
 function tick(){
   if(!playing) return;
-  const ahead=.14;
+  const ahead=.22; /* enough head-room to ride out a busy main thread without a gap */
   while(nextTime<ac.currentTime+ahead){
     const L=loopRange();
     if(PH.step>=L.b){

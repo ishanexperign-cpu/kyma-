@@ -427,6 +427,7 @@ function encodeWav(buf,bits=24){
   str('data');u32(data);
   const chans=[...Array(ch)].map((_,i)=>buf.getChannelData(i));
   if(float){ for(let i=0;i<n;i++) for(let c=0;c<ch;c++){dv.setFloat32(o,chans[c][i],true);o+=4;} }
+  else if(bits===16){ for(let i=0;i<n;i++) for(let c=0;c<ch;c++){ const v=clamp(chans[c][i]+(Math.random()-Math.random())/32767,-1,1); dv.setInt16(o,Math.round(v*32767),true); o+=2; } }
   else { const u=new Uint8Array(ab), q=8388607;
     for(let i=0;i<n;i++) for(let c=0;c<ch;c++){
       let v=chans[c][i]+(Math.random()-Math.random())/q; v=clamp(v,-1,1); let s=Math.round(v*q); if(s<0) s+=16777216;

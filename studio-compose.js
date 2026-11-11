@@ -10,7 +10,12 @@ function renderVibes(){
 function surprise(){ const v=S.vibe&&VIBES[S.vibe]?S.vibe:rnd(Object.keys(VIBES)); const song=vibeSong(v,true); loadSong(song,`New ${v} song “${song.name}”`); }
 function blankSong(){ const s=newSong(); s.name=S.name; s.bpm=S.bpm; s.root=S.root; s.scale=S.scale; s.len=16*16; s.master={...S.master};
   const prev=S; S=s; ['Drums','Bass','Keys'].map(c=>INSTS.find(i=>i.cat===c)).filter(Boolean).forEach(I=>s.tracks.push(newTrack(I.id))); S=prev; return s; }
+panelDefaults('compose',{dock:['play','restart','loop','undo','redo','hum','chords','addtrack','split','mgmake','m_space','mac_warmth','m_out','meter'],head:['undo','redo']});
+/* the demo grid opens under the start bar */
+function setDemos(open){ $('vibeBody').hidden=!open; $('demoBtn').setAttribute('aria-expanded',open); $('demoBtn').classList.toggle('open',open); }
 function initCompose(){
+  $('demoBtn').onclick=()=>setDemos($('vibeBody').hidden);
+  control({id:'surprise',group:'Compose',label:'Surprise me',icon:'dice',tip:'Write a brand-new song in this vibe',run:surprise});
   $('ideaBtn').onclick=surprise;
   $('blankBtn').onclick=()=>loadSong(blankSong(),'Empty song with three tracks');
   on('header',()=>{ $('desc').textContent=S.desc||''; $('desc').hidden=!S.desc; });
@@ -18,6 +23,6 @@ function initCompose(){
   renderVibes();
 }
 boot({
-  init(){ initTimeline(); initMagic(); initCompose(); },
-  fresh(){ $('vibesBox').open=true; },
+  init(){ initTimeline(); initMagic(); initCompose(); initChords(); },
+  fresh(){ if(innerWidth>760) setDemos(true); },
 });

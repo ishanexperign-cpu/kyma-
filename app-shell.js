@@ -3,7 +3,7 @@
    shared keys, the animation frame loop and the boot sequence. A studio calls boot({init}) once. */
 
 /* ---------- header ---------- */
-function renderPlayBtn(){ const b=$('playBtn'); if(!b) return; b.innerHTML=playing?ICON_PAUSE:ICON_PLAY; const l=playing?'Pause (Space)':'Play (Space)'; b.setAttribute('aria-label',l); b.title=l; }
+function renderPlayBtn(){ const b=$('playBtn'); if(!b) return; b.innerHTML=playing?ICONS.pause:ICONS.play; b.classList.toggle('on',playing); const l=playing?'Pause (Space)':'Play (Space)'; b.setAttribute('aria-label',l); b.title=l; }
 function renderHeader(){
   $('projName').value=S.name; $('bpm').value=S.bpm; $('root').value=S.root; $('scale').value=S.scale;
   const lb=$('loopBtn'); if(lb) lb.setAttribute('aria-pressed',S.loop);
@@ -13,8 +13,19 @@ function updateClock(){
   const sd=stepDur(), el=curStep()*sd, tot=S.len*sd, ck=fmtClock(el), cn=$('clockNow'); if(!cn) return;
   if(ck!==updateClock.last){ updateClock.last=ck; cn.innerHTML=ck.slice(0,-2)+'<i>'+ck.slice(-2)+'</i>'; }
   $('clockTot').textContent=fmtMS(tot); $('clockMode').textContent=UI.loopSel&&RANGE?'SEL':S.loop?'LOOP':'SONG';
+  const cb=$('clockBar'); if(cb){ const st=Math.floor(curStep()), t=String(Math.floor(st/16)+1).padStart(3,'0')+'.'+(Math.floor(st%16/4)+1); if(cb.textContent!==t) cb.textContent=t; }
+  hudMeter();
 }
+/* the header's output meter: peak per channel with a short fall */
+const HM={buf:null,hold:[0,0]};
+function hudMeter(){ const m=$('cbMeter'); if(!m) return; const bars=m.children; HM.buf=HM.buf||new Float32Array(1024);
+  [anaL,anaR].forEach((a,i)=>{ let pk=0; if(a&&ac&&ac.state==='running'){ a.getFloatTimeDomainData(HM.buf); for(let j=0;j<HM.buf.length;j+=2) pk=Math.max(pk,Math.abs(HM.buf[j])); }
+    const db=pk>0?20*Math.log10(pk):-60, v=clamp((db+48)/48,0,1); HM.hold[i]=Math.max(v,HM.hold[i]*.9); bars[i].style.setProperty('--v',HM.hold[i].toFixed(3)); bars[i].classList.toggle('hot',db>-1.5); }); }
 function renderAll(){ readTheme(); renderHeader(); renderTracks(); renderPlayBtn(); emit('all'); }
+/* tap tempo: the average of the last few taps, reset after a pause */
+const TAP={t:[]};
+function tapTempo(){ const now=performance.now(); TAP.t=TAP.t.filter(x=>now-x<2200); TAP.t.push(now); const b=$('tapBtn'); if(b){ b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); }
+  if(TAP.t.length<2){ toast('Keep tapping the beat…',null,1200); return; } const iv=(TAP.t[TAP.t.length-1]-TAP.t[0])/(TAP.t.length-1); setBpm(60000/iv); toast('Tempo '+S.bpm+' BPM',null,1200); }
 function setBpm(v){ S.bpm=clamp(Math.round(v)||100,40,220); $('bpm').value=S.bpm; if(G) applyGraph(G); persist(); requestDraw(); emit('bpm'); emit('header'); }
 
 /* ---------- popovers ---------- */
@@ -108,7 +119,12 @@ function frame(){
 function setupShell(){
   NOTE_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('root').appendChild(o); });
   Object.keys(SCALES).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; $('scale').appendChild(o); });
+  paintIcons(document);
   $('homeBtn').onclick=()=>Project.home();
+  const nb=$('newBtn'); if(nb) nb.onclick=()=>Project.newFile();
+  const ob=$('openBtn'); if(ob) ob.onclick=()=>$('openFile').click();
+  const tb=$('tapBtn'); if(tb) tb.onclick=tapTempo;
+  const bar=$('cmdbar'); if(bar){ const sc=()=>bar.classList.toggle('scrolled',scrollY>6); addEventListener('scroll',sc,{passive:true}); sc(); }
   const pb=$('playBtn'); if(pb){ pb.onclick=()=>playing?stopPlay():startPlay(); $('restartBtn').onclick=restartPlay; }
   const lb=$('loopBtn'); if(lb) lb.onclick=()=>{ S.loop=!S.loop; lb.setAttribute('aria-pressed',S.loop); persist(); };
   $('projName').onchange=e=>{ S.name=e.target.value.trim()||'Untitled'; e.target.value=S.name; persist(); emit('header'); };
@@ -140,6 +156,7 @@ function setupShell(){
     if(e.code==='Space'&&$('playBtn')){ e.preventDefault(); if(e.repeat) return; if(e.target.blur&&e.target!==document.body) e.target.blur(); playing?stopPlay():startPlay(); return; }
     if(k==='home'&&$('playBtn')){ restartPlay(); return; }
     if(k==='z'&&!e.repeat&&$('recBtn')){ toggleRec(); return; }
+    if(k==='t'&&!e.repeat){ tapTempo(); return; }
   });
   const re=()=>{ readTheme(); requestDraw(); emit('theme'); }; const mq=matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener&&mq.addEventListener('change',re);
   new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -149,6 +166,7 @@ async function boot(opts){
   const p=await Project.open();
   FOCUS=S.tracks[0]?.id||null;
   try{ opts.init&&opts.init(); }catch(e){ console.error(e); }
+  try{ initPanels(); }catch(e){ console.error(e); }
   emit('project',p);
   renderAll();
   requestAnimationFrame(frame);
@@ -156,3 +174,24 @@ async function boot(opts){
   await initChoir(); emit('choir');
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>requestDraw());
 }
+
+/* =========================================================
+   SIMPLE / PRO
+   Simple is the default: fewer controls, same engine. Pro reveals everything.
+   ========================================================= */
+const ViewMode=(()=>{
+  const KEY='kyma.viewmode'; let mode='simple';
+  try{ if(localStorage.getItem(KEY)==='pro') mode='pro'; }catch(e){}
+  const root=document.documentElement;
+  const paint=()=>{ root.classList.toggle('simple',mode==='simple'); const sw=document.getElementById('modeSw'); if(sw) sw.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===mode)); };
+  const set=m=>{ mode=m==='pro'?'pro':'simple'; try{ localStorage.setItem(KEY,mode); }catch(e){} paint(); try{ window.dispatchEvent(new Event('resize')); if(typeof requestDraw==='function') requestDraw(); }catch(e){} };
+  /* long chip lists fold to three rows with a "Show all" link */
+  const fold=()=>['mgMoods','mgGenres','mgUses'].forEach(id=>{ const box=document.getElementById(id); if(!box||box.dataset.fold) return; box.dataset.fold='1'; box.classList.add('fold');
+    const b=document.createElement('button'); b.type='button'; b.className='chips-more'; b.textContent='Show all'; b.setAttribute('aria-expanded','false');
+    b.onclick=()=>{ const all=box.classList.toggle('all'); b.textContent=all?'Show fewer':'Show all'; b.setAttribute('aria-expanded',all); };
+    box.after(b); new MutationObserver(()=>{ b.hidden=box.hidden; }).observe(box,{attributes:true,attributeFilter:['hidden']}); b.hidden=box.hidden; });
+  paint();
+  const boot=()=>{ paint(); fold(); const sw=document.getElementById('modeSw'); if(sw) sw.addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(b) set(b.dataset.m); }); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else setTimeout(boot,0);
+  return {get:()=>mode,set};
+})();
